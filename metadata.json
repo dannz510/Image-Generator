@@ -1,5 +1,8 @@
 {
-  "name": "Gemini Image Editor",
-  "description": "An application to edit images using text prompts with the Gemini 2.5 Flash Image model. Upload an image, describe your desired changes, and let AI generate the new version.",
-  "requestFramePermissions": []
+  "name": "Dannz Image Generator",
+  "description": "An advanced application to generate high-quality images from text prompts. Features AI-powered prompt refinement, negative prompts, style profiles, in-app filters, and advanced editing tools to bring your creative vision to life.",
+  "requestFramePermissions": [
+    "microphone",
+    "geolocation"
+  ]
 }
