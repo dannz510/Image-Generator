@@ -490,9 +490,9 @@ const Accordion: React.FC<{ title: string; children: React.ReactNode; defaultOpe
 };
 
 const Tooltip: React.FC<{ content: string; children: React.ReactNode }> = ({ content, children }) => (
-    <div className="relative group flex items-center">
+    <div className="relative group/tooltip flex items-center">
         {children}
-        <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 w-auto p-2 bg-black/80 text-white text-xs rounded-md shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap z-50 pointer-events-none">
+        <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 w-auto p-2 bg-black/80 text-white text-xs rounded-md shadow-lg opacity-0 group-hover/tooltip:opacity-100 transition-opacity duration-300 whitespace-nowrap z-50 pointer-events-none">
             {content}
         </div>
     </div>
