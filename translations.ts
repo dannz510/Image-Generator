@@ -61,6 +61,13 @@ export const translations = {
   latentInterpolationButton: { en: 'Latent Interpolation (Future)', vi: 'Nội suy Không gian ẩn (Tương lai)' },
   selfCorrectionButton: { en: 'Self-Correction Loop (Future)', vi: 'Vòng lặp Tự sửa lỗi (Tương lai)' },
   fineTuneButton: { en: 'Fine-Tune Model (Future)', vi: 'Tinh chỉnh Mô hình (Tương lai)' },
+  styleProfilesTitle: { en: 'Style Profiles', vi: 'Hồ sơ Phong cách' },
+  applyProfileLabel: { en: 'Apply a Profile', vi: 'Áp dụng một Hồ sơ' },
+  selectProfile: { en: 'Select a profile...', vi: 'Chọn một hồ sơ...' },
+  saveProfileLabel: { en: 'Save Current Settings as a New Profile', vi: 'Lưu Cài đặt Hiện tại thành Hồ sơ Mới' },
+  profileNamePlaceholder: { en: 'Profile Name...', vi: 'Tên Hồ sơ...' },
+  saveButton: { en: 'Save', vi: 'Lưu' },
+  manageProfilesLabel: { en: 'Manage Profiles', vi: 'Quản lý Hồ sơ' },
 
   // Main Buttons
   generating: { en: 'Generating...', vi: 'Đang tạo...' },
@@ -124,6 +131,10 @@ export const translations = {
   imageToAdd: { en: 'Image to Add', vi: 'Ảnh để Thêm' },
   selectImageButton: { en: 'Select Image', vi: 'Chọn ảnh' },
   addPersonPlaceholder: { en: 'e.g., "add my girlfriend smiling next to me"', vi: 'ví dụ: "thêm bạn gái của tôi đang cười bên cạnh tôi"' },
+  moveToFolderLabel: { en: 'Move to Project:', vi: 'Chuyển đến Dự án:' },
+  noFolder: { en: 'No Project', vi: 'Không có Dự án' },
+  deleteProjectConfirmation: { en: 'Are you sure you want to delete this project? Generations will not be deleted.', vi: 'Bạn có chắc chắn muốn xóa dự án này không? Các tác phẩm sẽ không bị xóa.' },
+  deleteHistoryConfirmation: { en: 'Are you sure you want to delete this entire generation entry?', vi: 'Bạn có chắc chắn muốn xóa toàn bộ mục tạo ảnh này không?' },
   
   // New Edit Modals
   remixImageTitle: { en: 'Remix Image', vi: 'Remix ảnh' },
@@ -148,6 +159,10 @@ export const translations = {
   watermarkSettings: { en: 'Watermark Settings', vi: 'Cài đặt Watermark' },
   enableWatermark: { en: 'Enable Watermark', vi: 'Bật Watermark' },
   watermarkText: { en: 'Watermark Text', vi: 'Nội dung Watermark' },
+  userProfileTitle: { en: 'User Profile', vi: 'Hồ sơ Người dùng' },
+  userIdLabel: { en: 'Your Unique User ID', vi: 'ID Người dùng Duy nhất của bạn' },
+  copyIdButton: { en: 'Copy ID', vi: 'Sao chép ID' },
+  idCopied: { en: 'Copied!', vi: 'Đã sao chép!' },
   
   // About & Onboarding
   aboutTitle: { en: 'About & Help', vi: 'Giới thiệu & Trợ giúp' },

@@ -7,7 +7,7 @@ import {
     RemixIcon, ExpandIcon, FixIcon, LockClosedIcon, QueueListIcon, CpuChipIcon, Squares2X2Icon, PrinterIcon, FolderIcon, TagIcon, 
     FolderPlusIcon, SearchIcon, MicrophoneIcon, PencilSquareIcon, BeakerIcon, GlobeAltIcon, BookOpenIcon, AdjustmentsHorizontalIcon, 
     ArrowsRightLeftIcon, CameraIcon, SparklesIcon, LanguageIcon, SunIcon, MoonIcon, BrushIcon, UserPlusIcon,
-    HomeIcon, CogIcon, QuestionMarkCircleIcon, StarIcon, TrashIcon, CodeBracketSquareIcon
+    HomeIcon, CogIcon, QuestionMarkCircleIcon, StarIcon, TrashIcon, CodeBracketSquareIcon, ArrowLeftIcon, ClipboardIcon
 } from './components/icons';
 import { fileToBase64 } from './utils/fileUtils';
 
@@ -359,6 +359,22 @@ interface UploadedImage { file: File; base64: string; }
 interface GeneratedImage { src: string; isUpscaling: boolean; tags: string[]; generationTime?: number; isFavorite?: boolean; prompt: string; negativePrompt: string; settings: any;}
 interface HistoryItem { id: string; prompt: string; negativePrompt: string; uploadedImages: UploadedImage[]; generatedImages: (Omit<GeneratedImage, 'prompt' | 'negativePrompt' | 'settings'>)[]; settings: any; tags: string[]; folderId?: string; }
 interface Folder { id: string; name: string; }
+interface StyleProfile {
+  id: string;
+  name: string;
+  prompt: string;
+  negativePrompt: string;
+  baseModel: string;
+  cameraSensor: string;
+  stylisticBudget: number;
+  consistencyLock: boolean;
+  aspectRatio: string;
+  faceLockIntensity: number;
+  preserveGlasses: boolean;
+  controlNetType: 'OpenPose' | 'Depth Map' | 'Canny Edge';
+  simulatedForce: number;
+}
+
 
 const Placeholder: React.FC<{ isLoading?: boolean, seriesProgress?: {current: number, total: number}, t: (key: keyof typeof translations) => string; }> = ({ isLoading = false, seriesProgress, t }) => (
   <div className="w-full h-full min-h-[400px] max-w-7xl bg-gray-200/50 dark:bg-gray-800/20 rounded-lg flex flex-col justify-center items-center p-8 text-center border border-gray-200 dark:border-gray-700/50 transition-all duration-300">
@@ -390,10 +406,25 @@ const HistoryModal: React.FC<{ history: HistoryItem[]; folders: Folder[]; onClos
         }
     };
     
+    const handleDeleteFolder = (folderId: string) => {
+        if (!window.confirm(t('deleteProjectConfirmation'))) return;
+        onUpdateFolders(folders.filter(f => f.id !== folderId));
+        onUpdateHistory(history.map(item => item.folderId === folderId ? { ...item, folderId: undefined } : item));
+    };
+
+    const handleMoveItemToFolder = (itemId: string, folderId: string) => {
+        onUpdateHistory(history.map(item => item.id === itemId ? { ...item, folderId: folderId || undefined } : item));
+    };
+
+    const handleDeleteHistoryItem = (itemId: string) => {
+        if (!window.confirm(t('deleteHistoryConfirmation'))) return;
+        onUpdateHistory(history.filter(item => item.id !== itemId));
+    };
+
     const filteredHistory = useMemo(() => {
         return [...history].reverse().filter(item => {
             const inFolder = activeFolderId ? item.folderId === activeFolderId : true;
-            const matchesSearch = searchTerm.toLowerCase() ? item.prompt.toLowerCase().includes(searchTerm.toLowerCase()) || item.tags.some(t => t.toLowerCase().includes(searchTerm.toLowerCase())) : true;
+            const matchesSearch = searchTerm.toLowerCase() ? item.prompt.toLowerCase().includes(searchTerm.toLowerCase()) || item.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase())) : true;
             return inFolder && matchesSearch;
         });
     }, [history, activeFolderId, searchTerm]);
@@ -404,7 +435,7 @@ const HistoryModal: React.FC<{ history: HistoryItem[]; folders: Folder[]; onClos
              <div className="w-64 bg-gray-50 dark:bg-black/20 border-r border-gray-200 dark:border-gray-700 p-4 flex flex-col">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">{t('projects')}</h3>
                 <button onClick={() => setActiveFolderId(null)} className={`w-full text-left p-2 rounded-md text-sm mb-2 transition-colors ${!activeFolderId ? 'bg-cyan-600 text-white' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'}`}>{t('allGenerations')}</button>
-                <div className="flex-1 overflow-y-auto">{folders.map(folder => (<button key={folder.id} onClick={() => setActiveFolderId(folder.id)} className={`w-full text-left p-2 rounded-md text-sm flex items-center gap-2 transition-colors ${activeFolderId === folder.id ? 'bg-cyan-600 text-white' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'}`}><FolderIcon className="w-4 h-4" /> {folder.name}</button>))}</div>
+                <div className="flex-1 overflow-y-auto pr-1 -mr-2">{folders.map(folder => (<div key={folder.id} className="group flex items-center justify-between"><button onClick={() => setActiveFolderId(folder.id)} className={`flex-1 text-left p-2 rounded-md text-sm flex items-center gap-2 transition-colors ${activeFolderId === folder.id ? 'bg-cyan-600 text-white' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'}`}><FolderIcon className="w-4 h-4" /> {folder.name}</button><button onClick={() => handleDeleteFolder(folder.id)} className="p-1 opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 transition-opacity"><TrashIcon className="w-4 h-4" /></button></div>))}</div>
                 <div className="mt-auto pt-4 border-t border-gray-200 dark:border-gray-700"><div className="flex gap-2"><input type="text" value={newFolderName} onChange={e => setNewFolderName(e.target.value)} placeholder={t('newProjectPlaceholder')} className="flex-1 bg-gray-200 dark:bg-gray-700 text-xs rounded-md p-2 border-gray-300 dark:border-gray-600 focus:ring-cyan-500 focus:border-cyan-500" /><button onClick={handleAddFolder} className="bg-cyan-600 p-2 rounded-md hover:bg-cyan-700 text-white"><FolderPlusIcon className="w-5 h-5"/></button></div></div>
              </div>
              <div className="flex-1 flex flex-col">
@@ -412,9 +443,10 @@ const HistoryModal: React.FC<{ history: HistoryItem[]; folders: Folder[]; onClos
                 <div className="p-6 relative bg-white dark:bg-gray-800"><SearchIcon className="w-5 h-5 text-gray-400 absolute top-9 left-9" /><input type="text" placeholder={t('searchPlaceholder')} value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full bg-gray-100 dark:bg-gray-900/50 border border-gray-300 dark:border-gray-700 rounded-lg p-2 pl-10 mb-6 text-sm text-gray-800 dark:text-gray-200"/></div>
                 <div className="px-6 pb-6 flex-1 overflow-y-auto bg-white dark:bg-gray-800">
                     {filteredHistory.length === 0 ? <p className="text-gray-500 dark:text-gray-400 text-center py-8">{t('noHistoryFound')}</p> : filteredHistory.map(item => (
-                        <details key={item.id} className="bg-gray-100 dark:bg-gray-900/50 p-4 rounded-lg mb-4">
-                            <summary className="cursor-pointer font-semibold text-gray-800 dark:text-gray-200 hover:text-cyan-500 dark:hover:text-cyan-400">{t('generatedOn')} {new Date(parseInt(item.id)).toLocaleString()}</summary>
-                            <div className="mt-4 border-t border-gray-200 dark:border-gray-700 pt-4"><h4 className="font-bold text-gray-700 dark:text-gray-300">{t('promptLabel')}:</h4><p className="text-sm text-gray-600 dark:text-gray-400 mb-2 font-mono whitespace-pre-wrap p-2 bg-black/5 dark:bg-black/20 rounded-md">{item.prompt}</p><div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-2">{item.generatedImages.map((img, idx) => <img key={idx} src={img.src} className="rounded-md" alt={`Generated ${idx}`} />)}</div></div>
+                        <details key={item.id} className="bg-gray-100 dark:bg-gray-900/50 p-4 rounded-lg mb-4 group/history">
+                            <summary className="cursor-pointer font-semibold text-gray-800 dark:text-gray-200 hover:text-cyan-500 dark:hover:text-cyan-400 flex justify-between items-center"><span>{t('generatedOn')} {new Date(parseInt(item.id)).toLocaleString()}</span> <button onClick={(e) => { e.preventDefault(); handleDeleteHistoryItem(item.id); }} className="p-1 opacity-0 group-hover/history:opacity-100 text-gray-400 hover:text-red-500 transition-opacity"><TrashIcon className="w-4 h-4" /></button></summary>
+                            <div className="mt-4 border-t border-gray-200 dark:border-gray-700 pt-4"><h4 className="font-bold text-gray-700 dark:text-gray-300">{t('promptLabel')}:</h4><p className="text-sm text-gray-600 dark:text-gray-400 mb-2 font-mono whitespace-pre-wrap p-2 bg-black/5 dark:bg-black/20 rounded-md">{item.prompt}</p><div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-2">{item.generatedImages.map((img, idx) => <img key={idx} src={img.src} className="rounded-md" alt={`Generated ${idx}`} />)}</div>
+                            <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700/50 flex items-center gap-2"><label htmlFor={`folder-select-${item.id}`} className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('moveToFolderLabel')}</label><select id={`folder-select-${item.id}`} value={item.folderId || ''} onChange={(e) => handleMoveItemToFolder(item.id, e.target.value)} className="bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-sm rounded-lg p-1.5 focus:ring-cyan-500 focus:border-cyan-500"><option value="">{t('noFolder')}</option>{folders.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}</select></div></div>
                         </details>
                     ))}
                 </div>
@@ -560,6 +592,7 @@ const App: React.FC = () => {
   const [activeLab, setActiveLab] = useState('core');
 
   // New Features State
+  const [userId, setUserId] = useState<string | null>(null);
   const [locale, setLocale] = useState<Locale>('en');
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
   const [editingImage, setEditingImage] = useState<{src: string, index: number} | null>(null);
@@ -620,7 +653,7 @@ const App: React.FC = () => {
   const [showNarrative, setShowNarrative] = useState(false);
 
   // New Features State
-  const [styleProfiles, setStyleProfiles] = useState<Record<string, any>>({});
+  const [styleProfiles, setStyleProfiles] = useState<StyleProfile[]>([]);
   const [newProfileName, setNewProfileName] = useState<string>('');
   const [watermark, setWatermark] = useState({ enabled: true, text: 'Dannz Generator' });
   const [activeFilters, setActiveFilters] = useState<Record<number, string>>({});
@@ -628,10 +661,16 @@ const App: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const controlNetInputRef = useRef<HTMLInputElement>(null);
   const fineTuneInputRef = useRef<HTMLInputElement>(null);
+  
+  const updateUserData = useCallback((key: string, data: any) => {
+      if (!userId) return;
+      localStorage.setItem(`dannz-${key}-${userId}`, JSON.stringify(data));
+  }, [userId]);
 
   const updateHistory = useCallback((newHistory: HistoryItem[]) => {
+      if (!userId) return;
       try {
-          localStorage.setItem('dannz-generation-history', JSON.stringify(newHistory));
+          updateUserData('generation-history', newHistory);
           setHistory(newHistory);
       } catch (e) {
           if (e instanceof DOMException && (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED')) {
@@ -643,7 +682,7 @@ const App: React.FC = () => {
               if (oldestNonFavoriteIndex !== -1) {
                   historyToPrune.splice(oldestNonFavoriteIndex, 1);
                   try {
-                      localStorage.setItem('dannz-generation-history', JSON.stringify(historyToPrune));
+                      updateUserData('generation-history', historyToPrune);
                       setHistory(historyToPrune);
                       setError(t('storagePrunedNotification'));
                   } catch (e2) {
@@ -656,17 +695,72 @@ const App: React.FC = () => {
               console.error("Failed to save history to localStorage", e);
           }
       }
-  }, [t]);
+  }, [userId, t, updateUserData]);
+  
+  const updateFolders = useCallback((newFolders: Folder[]) => {
+      setFolders(newFolders);
+      updateUserData('project-folders', newFolders);
+  }, [updateUserData]);
+
+  const updateStyleProfiles = useCallback((newProfiles: StyleProfile[]) => {
+      setStyleProfiles(newProfiles);
+      updateUserData('style-profiles', newProfiles);
+  }, [updateUserData]);
 
   useEffect(() => {
-    try {
-        const savedProfiles = localStorage.getItem('dannz-style-profiles'); if (savedProfiles) setStyleProfiles(JSON.parse(savedProfiles));
+    let id = localStorage.getItem('dannz-user-id');
+    if (!id) {
+        id = `user-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+        localStorage.setItem('dannz-user-id', id);
+    }
+    setUserId(id);
+  }, []);
+
+  useEffect(() => {
+    if (!userId) return;
+
+    const migrateAndLoad = (key: string) => {
+        const userKey = `dannz-${key}-${userId}`;
+        const globalKey = `dannz-${key}`;
         
-        const savedHistory = localStorage.getItem('dannz-generation-history');
-        if (savedHistory) {
-            const parsedHistory: HistoryItem[] = JSON.parse(savedHistory);
-            const migratedHistory = parsedHistory.map((item: any) => {
-                if (item.generatedImages && typeof item.generatedImages[0] === 'string') {
+        let data = null;
+        try {
+            data = JSON.parse(localStorage.getItem(userKey) || 'null');
+        } catch (e) {
+            console.error(`Error parsing localStorage for key ${userKey}, clearing it.`, e);
+            localStorage.removeItem(userKey);
+        }
+
+        if (!data) {
+            const globalDataRaw = localStorage.getItem(globalKey);
+            if (globalDataRaw) {
+                try {
+                    const globalData = JSON.parse(globalDataRaw);
+                    if (globalData) {
+                        data = globalData;
+                        localStorage.setItem(userKey, JSON.stringify(data));
+                        // Optional: localStorage.removeItem(globalKey);
+                    }
+                } catch (e) {
+                    console.error(`Failed to parse global data for key ${globalKey}`, e);
+                }
+            }
+        }
+        // This is the fix: correctly identify keys that should default to an array.
+        const isArrayKey = key.includes('history') || key.includes('profiles') || key.includes('folders');
+        return data || (isArrayKey ? [] : {});
+    };
+
+    try {
+        const savedProfiles = migrateAndLoad('style-profiles');
+        if (Array.isArray(savedProfiles)) setStyleProfiles(savedProfiles);
+        
+        const savedHistory: HistoryItem[] = migrateAndLoad('generation-history');
+        // This guard prevents the app from crashing if savedHistory is not an array.
+        if (Array.isArray(savedHistory)) {
+            const migratedHistory = savedHistory.map((item: any) => {
+                // Ensure generatedImages is an array before trying to access its elements
+                if (item.generatedImages && Array.isArray(item.generatedImages) && item.generatedImages.length > 0 && typeof item.generatedImages[0] === 'string') {
                     return { ...item, generatedImages: item.generatedImages.map((src: string) => ({ src, isUpscaling: false, tags: [], isFavorite: false })) };
                 }
                 return item;
@@ -674,16 +768,14 @@ const App: React.FC = () => {
             setHistory(migratedHistory);
         }
 
-        const savedFolders = localStorage.getItem('dannz-project-folders'); if(savedFolders) setFolders(JSON.parse(savedFolders));
+        const savedFolders = migrateAndLoad('project-folders');
+        if(Array.isArray(savedFolders)) setFolders(savedFolders);
         
         const savedTheme = localStorage.getItem('dannz-theme');
         if (savedTheme === 'light' || savedTheme === 'dark') setTheme(savedTheme);
 
     } catch (e) { console.error("Failed to load data from localStorage", e); }
-  }, []);
-
-  
-  const updateFolders = (newFolders: Folder[]) => { setFolders(newFolders); localStorage.setItem('dannz-project-folders', JSON.stringify(newFolders)); }
+  }, [userId]);
 
   const handleImageUpload = (isControlNet: boolean, isFineTune: boolean = false) => async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files; if (!files || files.length === 0) return;
@@ -933,6 +1025,40 @@ const App: React.FC = () => {
     }
   };
   
+  const handleSaveProfile = () => {
+      if (!newProfileName.trim()) return;
+      const newProfile: StyleProfile = {
+          id: Date.now().toString(),
+          name: newProfileName.trim(),
+          prompt, negativePrompt, baseModel, cameraSensor, stylisticBudget, consistencyLock,
+          aspectRatio, faceLockIntensity, preserveGlasses, controlNetType, simulatedForce
+      };
+      updateStyleProfiles([...styleProfiles, newProfile]);
+      setNewProfileName('');
+  };
+
+  const handleApplyProfile = (e: React.ChangeEvent<HTMLSelectElement>) => {
+      const profileId = e.target.value;
+      const profile = styleProfiles.find(p => p.id === profileId);
+      if (profile) {
+          setPrompt(profile.prompt);
+          setNegativePrompt(profile.negativePrompt);
+          setBaseModel(profile.baseModel);
+          setCameraSensor(profile.cameraSensor);
+          setStylisticBudget(profile.stylisticBudget);
+          setConsistencyLock(profile.consistencyLock);
+          setAspectRatio(profile.aspectRatio);
+          setFaceLockIntensity(profile.faceLockIntensity);
+          setPreserveGlasses(profile.preserveGlasses);
+          setControlNetType(profile.controlNetType);
+          setSimulatedForce(profile.simulatedForce);
+      }
+  };
+
+  const handleDeleteProfile = (profileId: string) => {
+      updateStyleProfiles(styleProfiles.filter(p => p.id !== profileId));
+  };
+  
   const LabButton: React.FC<{labName: string; children: React.ReactNode; icon: React.ReactNode}> = ({labName, children, icon}) => (
     <button onClick={() => setActiveLab(labName)} className={`flex-1 p-2 text-xs font-semibold rounded-md flex items-center justify-center gap-2 transition-colors duration-200 ${activeLab === labName ? 'bg-cyan-600 text-white shadow-md' : 'bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-700'}`}>{icon}{children}</button>
   );
@@ -995,10 +1121,30 @@ const App: React.FC = () => {
                 )}
             </main>
         );
-        case 'settings': return (
+        case 'settings':
+            const [copied, setCopied] = useState(false);
+            const handleCopy = () => {
+                if(userId) {
+                    navigator.clipboard.writeText(userId);
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 2000);
+                }
+            };
+            return (
             <main className={`flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto ${animationClass}`}>
                 <header className="mb-6"><h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('settingsTitle')}</h1><p className="text-sm text-gray-500 dark:text-gray-400">{t('settingsDescription')}</p></header>
                 <div className="max-w-xl space-y-6">
+                    <div className="bg-white dark:bg-gray-800/50 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
+                        <h3 className="text-lg font-semibold mb-2 text-gray-900 dark:text-white">{t('userProfileTitle')}</h3>
+                        <label htmlFor="userId" className="text-sm font-medium text-gray-800 dark:text-gray-200">{t('userIdLabel')}</label>
+                        <div className="flex items-center gap-2 mt-1">
+                            <input id="userId" type="text" readOnly value={userId || ''} className="flex-1 bg-gray-100 dark:bg-gray-700/50 border border-gray-300 dark:border-gray-600 rounded-lg p-2 text-xs font-mono"/>
+                            <button onClick={handleCopy} className="bg-cyan-600 text-white font-bold py-2 px-3 rounded-lg hover:bg-cyan-700 transition-colors flex items-center gap-2 text-sm">
+                                <ClipboardIcon className="w-4 h-4" />
+                                {copied ? t('idCopied') : t('copyIdButton')}
+                            </button>
+                        </div>
+                    </div>
                     <div className="bg-white dark:bg-gray-800/50 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
                         <h3 className="text-lg font-semibold mb-2 text-gray-900 dark:text-white">{t('watermarkSettings')}</h3>
                         <div className="flex items-center justify-between">
@@ -1041,6 +1187,15 @@ const App: React.FC = () => {
         case 'generator':
         default: return (
             <>
+                <header className="lg:hidden sticky top-0 z-10 bg-white/80 dark:bg-gray-900/90 backdrop-blur-sm p-4 border-b border-gray-200 dark:border-gray-800 flex justify-between items-center">
+                    <div className="flex items-center gap-2">
+                         <div className="w-8 h-8 bg-cyan-500 rounded-lg flex items-center justify-center font-bold text-black text-xl shrink-0">D</div>
+                         <h1 className="text-lg font-bold text-gray-900 dark:text-white">{t('appTitle')}</h1>
+                    </div>
+                    <button onClick={() => setIsControlsOpen(true)} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700">
+                        <AdjustmentsHorizontalIcon className="w-6 h-6" />
+                    </button>
+                </header>
                 <main className={`flex-1 p-4 sm:p-6 lg:p-8 flex items-center justify-center overflow-y-auto ${animationClass}`}>
                     {isLoading ? <Placeholder isLoading={true} seriesProgress={seriesProgress} t={t} /> : generatedImages.length > 0 ? (
                     <div className="grid gap-4 sm:gap-6 w-full max-w-7xl grid-cols-1">
@@ -1078,13 +1233,6 @@ const App: React.FC = () => {
                             )})}
                     </div>
                     ) : <Placeholder t={t}/>}
-                    <button
-                        onClick={() => setIsControlsOpen(true)}
-                        className="lg:hidden fixed bottom-6 right-6 z-20 bg-cyan-600 text-white p-4 rounded-full shadow-lg hover:bg-cyan-700 transition-colors"
-                        aria-label={t('openControls')}
-                    >
-                        <AdjustmentsHorizontalIcon className="w-6 h-6" />
-                    </button>
                 </main>
                 
                 {isControlsOpen && (
@@ -1096,13 +1244,13 @@ const App: React.FC = () => {
         
                 <aside className={`w-full max-w-sm bg-white dark:bg-gray-950/95 backdrop-blur-sm p-6 flex flex-col border-gray-200 dark:border-gray-800 transition-transform duration-300 ease-in-out fixed top-0 right-0 h-full z-40 transform ${isControlsOpen ? 'translate-x-0' : 'translate-x-full'} lg:static lg:transform-none lg:h-auto lg:max-w-none lg:w-[400px] xl:w-[450px] lg:border-l lg:z-auto`}>
                     <header className="mb-6 flex justify-between items-start">
-                        <div>
+                        <button onClick={() => setIsControlsOpen(false)} className="lg:hidden p-1 -ml-2 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full">
+                            <ArrowLeftIcon className="w-6 h-6" />
+                        </button>
+                        <div className="flex-1 lg:flex-none text-left lg:text-left ml-2 lg:ml-0">
                             <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{t('appTitle')}</h1>
                             <p className="text-sm text-gray-500 dark:text-gray-400">{t('appSubtitle')}</p>
                         </div>
-                        <button onClick={() => setIsControlsOpen(false)} className="lg:hidden p-1 -mr-1 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full">
-                            <CloseIcon className="w-6 h-6" />
-                        </button>
                     </header>
                     
                     <div className="flex bg-gray-100 dark:bg-gray-900 p-1 rounded-lg mb-4 border border-gray-200 dark:border-gray-700/50"><LabButton labName="core" icon={<SparklesIcon className="w-4 h-4"/>}>{t('core')}</LabButton><LabButton labName="structure" icon={<AdjustmentsHorizontalIcon className="w-4 h-4"/>}>{t('structure')}</LabButton><LabButton labName="advanced" icon={<BeakerIcon className="w-4 h-4"/>}>{t('advanced')}</LabButton></div>
@@ -1138,7 +1286,38 @@ const App: React.FC = () => {
                             </Accordion>
                         </>)}
                         {activeLab === 'advanced' && (<>
-                            <Accordion title={t('technicalControlsTitle')} defaultOpen>
+                            <Accordion title={t('styleProfilesTitle')} defaultOpen>
+                                <div className="space-y-4">
+                                    <div>
+                                        <label htmlFor="apply-profile" className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">{t('applyProfileLabel')}</label>
+                                        <select id="apply-profile" onChange={handleApplyProfile} className="w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-xs rounded-lg p-2 focus:ring-cyan-500 focus:border-cyan-500">
+                                            <option value="">{t('selectProfile')}</option>
+                                            {styleProfiles.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                                        </select>
+                                    </div>
+                                    <div className="border-t border-gray-200 dark:border-gray-700/50 pt-4">
+                                        <label htmlFor="save-profile" className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">{t('saveProfileLabel')}</label>
+                                        <div className="flex gap-2">
+                                            <input id="save-profile" value={newProfileName} onChange={e => setNewProfileName(e.target.value)} placeholder={t('profileNamePlaceholder')} className="flex-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-xs rounded-lg p-2 focus:ring-cyan-500 focus:border-cyan-500" />
+                                            <button onClick={handleSaveProfile} disabled={!newProfileName.trim()} className="bg-cyan-600 text-white font-bold py-2 px-3 rounded-lg hover:bg-cyan-700 disabled:bg-gray-500 transition-colors text-sm">{t('saveButton')}</button>
+                                        </div>
+                                    </div>
+                                    {styleProfiles.length > 0 && (
+                                    <div className="border-t border-gray-200 dark:border-gray-700/50 pt-4">
+                                        <h4 className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">{t('manageProfilesLabel')}</h4>
+                                        <ul className="space-y-2 max-h-32 overflow-y-auto pr-1">
+                                            {styleProfiles.map(p => (
+                                                <li key={p.id} className="flex justify-between items-center bg-gray-100 dark:bg-gray-800/50 p-2 rounded-md">
+                                                    <span className="text-sm text-gray-800 dark:text-gray-200">{p.name}</span>
+                                                    <button onClick={() => handleDeleteProfile(p.id)} className="text-gray-400 hover:text-red-500 p-1"><TrashIcon className="w-4 h-4" /></button>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                    )}
+                                </div>
+                            </Accordion>
+                            <Accordion title={t('technicalControlsTitle')}>
                                 <div className="space-y-3">
                                     <div className="flex items-center justify-between"><label htmlFor="consistencyLock" className="text-xs text-gray-700 dark:text-gray-300 flex items-center gap-2">🔥 {t('consistencyLockLabel')}</label><label className="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="consistencyLock" className="sr-only peer" checked={consistencyLock} onChange={e => setConsistencyLock(e.target.checked)} /><div className="w-9 h-5 bg-gray-200 dark:bg-gray-700 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-cyan-600"></div></label></div>
                                     <div><label htmlFor="stylisticBudget" className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">{t('styleDeviationLabel')}: <span className="font-semibold text-gray-800 dark:text-gray-200">{stylisticBudget}%</span></label><input type="range" min="0" max="100" step="1" value={stylisticBudget} onChange={e => setStylisticBudget(parseInt(e.target.value))} className="w-full h-1.5 bg-gray-300 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer range-sm accent-cyan-500 mt-1"/></div>
