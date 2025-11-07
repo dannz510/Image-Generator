@@ -54,17 +54,18 @@ export const translations = {
   simulationTitle: { en: 'Physics & Camera Simulation', vi: 'Mô phỏng Vật lý & Máy ảnh' },
   simulateForceLabel: { en: 'Simulate Wind/Force', vi: 'Mô phỏng Gió/Lực' },
   cameraSensorLabel: { en: 'Camera Sensor / Film Stock', vi: 'Cảm biến Máy ảnh / Film' },
-  materialEditorButton: { en: 'Material Editor', vi: 'Trình chỉnh sửa Vật liệu' },
+  materialEditorButton: { en: 'Material Editor (Future)', vi: 'Trình chỉnh sửa Vật liệu (Tương lai)' },
   experimentationLabTitle: { en: 'AI Experimentation Lab', vi: 'Phòng Thí nghiệm AI' },
   experimentationLabDescription: { en: 'Advanced tools for AI Engineers', vi: 'Công cụ nâng cao cho Kỹ sư AI' },
-  abTestingButton: { en: 'A/B Testing', vi: 'Thử nghiệm A/B' },
-  latentInterpolationButton: { en: 'Latent Interpolation', vi: 'Nội suy Không gian ẩn' },
-  selfCorrectionButton: { en: 'Self-Correction Loop', vi: 'Vòng lặp Tự sửa lỗi' },
-  fineTuneButton: { en: 'Fine-Tune Model', vi: 'Tinh chỉnh Mô hình' },
+  abTestingButton: { en: 'A/B Testing (Future)', vi: 'Thử nghiệm A/B (Tương lai)' },
+  latentInterpolationButton: { en: 'Latent Interpolation (Future)', vi: 'Nội suy Không gian ẩn (Tương lai)' },
+  selfCorrectionButton: { en: 'Self-Correction Loop (Future)', vi: 'Vòng lặp Tự sửa lỗi (Tương lai)' },
+  fineTuneButton: { en: 'Fine-Tune Model (Future)', vi: 'Tinh chỉnh Mô hình (Tương lai)' },
 
   // Main Buttons
   generating: { en: 'Generating...', vi: 'Đang tạo...' },
   generateButton: { en: 'Generate', vi: 'Tạo ảnh' },
+  openControls: { en: 'Open Controls', vi: 'Mở Điều khiển' },
   
   // Viewport & Placeholders
   viewport: { en: 'Viewport', vi: 'Khung nhìn' },
@@ -88,7 +89,7 @@ export const translations = {
   tooltipRemix: { en: 'Remix Image', vi: 'Remix ảnh' },
   tooltipExpand: { en: 'Expand Canvas', vi: 'Mở rộng Khung vẽ' },
   tooltipFix: { en: 'Fix Imperfections', vi: 'Sửa lỗi' },
-
+  tooltipCRT: { en: 'Causal Relationship Tracer', vi: 'Truy vết Quan hệ Nhân quả' },
 
   // Modals
   cropImageTitle: { en: 'Crop Image', vi: 'Cắt ảnh' },
@@ -148,10 +149,49 @@ export const translations = {
   enableWatermark: { en: 'Enable Watermark', vi: 'Bật Watermark' },
   watermarkText: { en: 'Watermark Text', vi: 'Nội dung Watermark' },
   
-  // About
+  // About & Onboarding
   aboutTitle: { en: 'About & Help', vi: 'Giới thiệu & Trợ giúp' },
   aboutDescription: { en: 'Your guide to the Meta-Creative Studio.', vi: 'Hướng dẫn của bạn về Meta-Creative Studio.' },
+  aboutWelcome: { en: 'Welcome to Meta-Creative Studio', vi: 'Chào mừng đến với Meta-Creative Studio' },
+  aboutIntro: { en: 'This application is your cognitive creative partner, designed to bring your most complex visions to life using the power of Google\'s Gemini AI. Here\'s a quick guide to some of the key features:', vi: 'Ứng dụng này là đối tác sáng tạo nhận thức của bạn, được thiết kế để biến những tầm nhìn phức tạp nhất của bạn thành hiện thực bằng sức mạnh của Gemini AI của Google. Dưới đây là hướng dẫn nhanh về một số tính năng chính:' },
+  aboutCoreLab: { en: 'Core Lab', vi: 'Lab Cốt lõi' },
+  aboutCoreLabDesc: { en: 'This is your primary workspace. Enter your main prompt, add negative prompts to exclude unwanted elements, and use the powerful **AI Refine** button to let Gemini enhance your ideas into professional-grade prompts. You can also use your voice to dictate prompts.', vi: 'Đây là không gian làm việc chính của bạn. Nhập prompt chính, thêm prompt phủ định để loại trừ các yếu tố không mong muốn, và sử dụng nút **AI Tinh chỉnh** mạnh mẽ để Gemini nâng cao ý tưởng của bạn thành các prompt chuyên nghiệp. Bạn cũng có thể dùng giọng nói để đọc prompt.' },
+  aboutStructureLab: { en: 'Structure Lab', vi: 'Lab Cấu trúc' },
+  aboutStructureLabDesc: { en: 'Gain precise control over your creations. Upload reference images for faces and poses, or sketch a pose directly. Use **Face Lock** to maintain character consistency, and define a **Character ID** to ensure your subject remains the same across different scenes and outfits.', vi: 'Kiểm soát chính xác các tác phẩm của bạn. Tải lên hình ảnh tham chiếu cho khuôn mặt và dáng điệu, hoặc phác thảo dáng trực tiếp. Sử dụng **Khóa Gương mặt** để duy trì tính nhất quán của nhân vật, và xác định **ID Nhân vật** để đảm bảo chủ thể của bạn không đổi qua các cảnh và trang phục khác nhau.' },
+  aboutAdvancedLab: { en: 'Advanced Lab', vi: 'Lab Nâng cao' },
+  aboutAdvancedLabDesc: { en: 'For the ultimate control, the Advanced Lab lets you fine-tune technical parameters. Lock the creative seed for consistency, adjust aspect ratios, and even simulate different camera sensors and physical forces like wind.', vi: 'Để kiểm soát tối ưu, Lab Nâng cao cho phép bạn tinh chỉnh các thông số kỹ thuật. Khóa seed sáng tạo để nhất quán, điều chỉnh tỷ lệ khung hình, và thậm chí mô phỏng các cảm biến máy ảnh khác nhau và các lực vật lý như gió.' },
+  aboutEditing: { en: 'Editing Your Images', vi: 'Chỉnh sửa ảnh của bạn' },
+  aboutEditingDesc: { en: 'Hover over any generated image to access a suite of powerful editing tools:', vi: 'Di chuột qua bất kỳ ảnh đã tạo nào để truy cập bộ công cụ chỉnh sửa mạnh mẽ:' },
+  aboutRemix: { en: 'Remix: Re-generate the image with a completely new prompt.', vi: 'Remix: Tạo lại ảnh với một prompt hoàn toàn mới.' },
+  aboutExpand: { en: 'Expand Canvas: Use AI to "outpaint" and expand the scene beyond its original borders.', vi: 'Mở rộng Khung vẽ: Dùng AI để "vẽ thêm" và mở rộng cảnh ra ngoài viền gốc.' },
+  aboutFix: { en: 'Fix Imperfections: "Inpaint" and correct small errors by describing the fix you want.', vi: 'Sửa lỗi: "Vẽ vào trong" và sửa các lỗi nhỏ bằng cách mô tả cách bạn muốn sửa.' },
+  aboutCRT: { en: 'Causal Tracer: An experimental tool to understand which parts of your prompt influenced the image.', vi: 'Truy vết Nhân quả: Một công cụ thử nghiệm để hiểu phần nào của prompt đã ảnh hưởng đến hình ảnh.' },
+  
+  // Onboarding
+  splashWelcome: { en: 'Welcome to', vi: 'Chào mừng đến với' },
+  startTour: { en: 'Start Tour', vi: 'Bắt đầu Hướng dẫn' },
+  skip: { en: 'Skip', vi: 'Bỏ qua' },
+  next: { en: 'Next', vi: 'Tiếp' },
+  done: { en: 'Done', vi: 'Hoàn tất' },
+  onboardingStep1: { en: 'This is the **Control Panel**. Here you can write your prompt and adjust all the settings for your creation.', vi: 'Đây là **Bảng điều khiển**. Tại đây bạn có thể viết prompt và điều chỉnh tất cả các cài đặt cho tác phẩm của mình.' },
+  onboardingStep2: { en: 'Switch between **Labs** to access different levels of control, from core prompting to advanced simulations.', vi: 'Chuyển đổi giữa các **Lab** để truy cập các cấp độ kiểm soát khác nhau, từ prompt cốt lõi đến mô phỏng nâng cao.' },
+  onboardingStep3: { en: 'This is the **Viewport**. Your generated images will appear here in stunning quality.', vi: 'Đây là **Khung nhìn**. Các hình ảnh bạn tạo sẽ xuất hiện ở đây với chất lượng tuyệt vời.' },
+  onboardingStep4: { en: 'Once an image is generated, hover over it to access a powerful suite of **editing tools** like Remix, Crop, and Upscale.', vi: 'Sau khi ảnh được tạo, di chuột qua nó để truy cập bộ **công cụ chỉnh sửa** mạnh mẽ như Remix, Cắt và Nâng cấp.' },
+  onboardingStep5: { en: 'Use the **Navigation Bar** to switch between the Generator, your favorite images in the Gallery, and other app sections. Enjoy creating!', vi: 'Sử dụng **Thanh điều hướng** để chuyển đổi giữa Trình tạo, các ảnh yêu thích của bạn trong Bộ sưu tập, và các mục khác của ứng dụng. Chúc bạn sáng tạo vui vẻ!' },
+
+  // CRT Modal
+  crtTitle: { en: 'Causal Relationship Tracer (Analysis)', vi: 'Truy vết Quan hệ Nhân quả (Phân tích)' },
+  crtDescription: { en: 'Simulated AI analysis of the selected pixel. This is an experimental feature to visualize how AI might interpret a prompt.', vi: 'Phân tích AI mô phỏng của pixel đã chọn. Đây là một tính năng thử nghiệm để hình dung cách AI có thể diễn giải một prompt.' },
+  crtHeading: { en: 'Pixel Analysis at (X, Y)', vi: 'Phân tích Pixel tại (X, Y)' },
+  crtInfluences: { en: 'Primary Influences:', vi: 'Ảnh hưởng chính:' },
+  crtToken: { en: 'Token', vi: 'Token' },
+  crtWeight: { en: 'Weight', vi: 'Trọng số' },
+  crtStep: { en: 'Influence at Step', vi: 'Ảnh hưởng ở Bước' },
   
   // Other
   deleteConfirmation: { en: 'Are you sure you want to delete this image?', vi: 'Bạn có chắc chắn muốn xóa hình ảnh này không?' },
+  storagePrunedNotification: { en: 'Storage was full. The oldest non-favorited generation was removed to make space.', vi: 'Bộ nhớ đã đầy. Lần tạo cũ nhất không được yêu thích đã được xóa để giải phóng dung lượng.' },
+  storageFullError: { en: 'Storage is full. Failed to save new generation.', vi: 'Bộ nhớ đã đầy. Không thể lưu lần tạo mới.' },
+  storageFullFavoritesError: { en: 'Storage is full and all items are favorited. Please unfavorite some items to make space.', vi: 'Bộ nhớ đã đầy và tất cả các mục đều được yêu thích. Vui lòng bỏ yêu thích một số mục để giải phóng dung lượng.' },
+
 };

@@ -7,7 +7,7 @@ import {
     RemixIcon, ExpandIcon, FixIcon, LockClosedIcon, QueueListIcon, CpuChipIcon, Squares2X2Icon, PrinterIcon, FolderIcon, TagIcon, 
     FolderPlusIcon, SearchIcon, MicrophoneIcon, PencilSquareIcon, BeakerIcon, GlobeAltIcon, BookOpenIcon, AdjustmentsHorizontalIcon, 
     ArrowsRightLeftIcon, CameraIcon, SparklesIcon, LanguageIcon, SunIcon, MoonIcon, BrushIcon, UserPlusIcon,
-    HomeIcon, CogIcon, QuestionMarkCircleIcon, StarIcon, TrashIcon
+    HomeIcon, CogIcon, QuestionMarkCircleIcon, StarIcon, TrashIcon, CodeBracketSquareIcon
 } from './components/icons';
 import { fileToBase64 } from './utils/fileUtils';
 
@@ -356,12 +356,12 @@ Image 1 (portrait): Character holds a transparent umbrella, looking back at the 
 Image 2 (full body): Character with umbrella, alone in a vast snowy field, looking up to catch snowflakes. Shot from above. Distant bare trees. Conveys smallness and isolation.
 Image 3 (close-up): Zoomed-in on the character's sorrowful, yearning eyes.`;
 interface UploadedImage { file: File; base64: string; }
-interface GeneratedImage { src: string; isUpscaling: boolean; tags: string[]; generationTime?: number; isFavorite?: boolean; }
-interface HistoryItem { id: string; prompt: string; negativePrompt: string; uploadedImages: UploadedImage[]; generatedImages: GeneratedImage[]; settings: any; tags: string[]; folderId?: string; }
+interface GeneratedImage { src: string; isUpscaling: boolean; tags: string[]; generationTime?: number; isFavorite?: boolean; prompt: string; negativePrompt: string; settings: any;}
+interface HistoryItem { id: string; prompt: string; negativePrompt: string; uploadedImages: UploadedImage[]; generatedImages: (Omit<GeneratedImage, 'prompt' | 'negativePrompt' | 'settings'>)[]; settings: any; tags: string[]; folderId?: string; }
 interface Folder { id: string; name: string; }
 
 const Placeholder: React.FC<{ isLoading?: boolean, seriesProgress?: {current: number, total: number}, t: (key: keyof typeof translations) => string; }> = ({ isLoading = false, seriesProgress, t }) => (
-  <div className="w-full h-full min-h-[400px] max-w-7xl bg-white/50 dark:bg-black/20 rounded-lg flex flex-col justify-center items-center p-8 text-center border border-gray-300 dark:border-gray-800 transition-all duration-300">
+  <div className="w-full h-full min-h-[400px] max-w-7xl bg-gray-200/50 dark:bg-gray-800/20 rounded-lg flex flex-col justify-center items-center p-8 text-center border border-gray-200 dark:border-gray-700/50 transition-all duration-300">
     {isLoading ? (
       <>
         <div className="w-16 h-16 border-4 border-dashed rounded-full animate-spin border-cyan-500"></div>
@@ -370,7 +370,7 @@ const Placeholder: React.FC<{ isLoading?: boolean, seriesProgress?: {current: nu
       </>
     ) : (
       <>
-        <ImageIcon className="w-24 h-24 text-gray-400 dark:text-gray-700" />
+        <ImageIcon className="w-24 h-24 text-gray-300 dark:text-gray-700" />
         <p className="mt-4 text-xl text-gray-600 dark:text-gray-400 font-semibold">{t('viewport')}</p>
         <p className="text-sm text-gray-500 dark:text-gray-500">{t('viewportDescription')}</p>
       </>
@@ -548,7 +548,7 @@ const App: React.FC = () => {
   const [negativePrompt, setNegativePrompt] = useState<string>('bad anatomy, extra limbs, blurry, watermark, text, signature');
   const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>([]);
   const [controlNetImage, setControlNetImage] = useState<UploadedImage | null>(null);
-  const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([]);
+  const [generatedImages, setGeneratedImages] = useState<(Omit<GeneratedImage, 'prompt' | 'negativePrompt' | 'settings'>)[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isRefining, setIsRefining] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -567,9 +567,12 @@ const App: React.FC = () => {
   const [showAddPerson, setShowAddPerson] = useState(false);
   const [activeView, setActiveView] = useState<ActiveView>('generator');
   
-  const [remixingImage, setRemixingImage] = useState<(GeneratedImage & { index: number }) | null>(null);
-  const [expandingImage, setExpandingImage] = useState<(GeneratedImage & { index: number }) | null>(null);
-  const [fixingImage, setFixingImage] = useState<(GeneratedImage & { index: number }) | null>(null);
+  const [remixingImage, setRemixingImage] = useState<(Omit<GeneratedImage, 'prompt'|'negativePrompt'|'settings'> & { index: number }) | null>(null);
+  const [expandingImage, setExpandingImage] = useState<(Omit<GeneratedImage, 'prompt'|'negativePrompt'|'settings'> & { index: number }) | null>(null);
+  const [fixingImage, setFixingImage] = useState<(Omit<GeneratedImage, 'prompt'|'negativePrompt'|'settings'> & { index: number }) | null>(null);
+
+  // Responsive state
+  const [isControlsOpen, setIsControlsOpen] = useState(false);
 
   // i18n helper
   const t = useCallback((key: keyof typeof translations) => {
@@ -580,7 +583,9 @@ const App: React.FC = () => {
     const doc = document.documentElement;
     if (theme === 'dark') {
       doc.classList.add('dark');
+      doc.classList.remove('light');
     } else {
+      doc.classList.add('light');
       doc.classList.remove('dark');
     }
     localStorage.setItem('dannz-theme', theme);
@@ -624,6 +629,35 @@ const App: React.FC = () => {
   const controlNetInputRef = useRef<HTMLInputElement>(null);
   const fineTuneInputRef = useRef<HTMLInputElement>(null);
 
+  const updateHistory = useCallback((newHistory: HistoryItem[]) => {
+      try {
+          localStorage.setItem('dannz-generation-history', JSON.stringify(newHistory));
+          setHistory(newHistory);
+      } catch (e) {
+          if (e instanceof DOMException && (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED')) {
+              console.warn("LocalStorage quota exceeded. Pruning oldest non-favorited history item.");
+              const historyToPrune = [...newHistory];
+              
+              const oldestNonFavoriteIndex = historyToPrune.findIndex(item => !item.generatedImages.some(img => img.isFavorite));
+
+              if (oldestNonFavoriteIndex !== -1) {
+                  historyToPrune.splice(oldestNonFavoriteIndex, 1);
+                  try {
+                      localStorage.setItem('dannz-generation-history', JSON.stringify(historyToPrune));
+                      setHistory(historyToPrune);
+                      setError(t('storagePrunedNotification'));
+                  } catch (e2) {
+                      setError(t('storageFullError'));
+                  }
+              } else {
+                  setError(t('storageFullFavoritesError'));
+              }
+          } else {
+              console.error("Failed to save history to localStorage", e);
+          }
+      }
+  }, [t]);
+
   useEffect(() => {
     try {
         const savedProfiles = localStorage.getItem('dannz-style-profiles'); if (savedProfiles) setStyleProfiles(JSON.parse(savedProfiles));
@@ -648,7 +682,7 @@ const App: React.FC = () => {
     } catch (e) { console.error("Failed to load data from localStorage", e); }
   }, []);
 
-  const updateHistory = (newHistory: HistoryItem[]) => { setHistory(newHistory); localStorage.setItem('dannz-generation-history', JSON.stringify(newHistory)); }
+  
   const updateFolders = (newFolders: Folder[]) => { setFolders(newFolders); localStorage.setItem('dannz-project-folders', JSON.stringify(newFolders)); }
 
   const handleImageUpload = (isControlNet: boolean, isFineTune: boolean = false) => async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -773,7 +807,7 @@ const App: React.FC = () => {
     return fullPrompt;
   }
 
-  const handleSubmit = useCallback(async (isSeries = false, editingOptions?: {baseImage: GeneratedImage & { historyId: string, index: number }, newImages?: UploadedImage[], editPrompt: string}) => {
+  const handleSubmit = useCallback(async (isSeries = false, editingOptions?: {baseImage: Omit<GeneratedImage, 'prompt'|'negativePrompt'|'settings'> & { historyId: string, index: number }, newImages?: UploadedImage[], editPrompt: string}) => {
     const isSeriesRun = isSeries && seriesBasePrompt && seriesChanges.trim();
     const changes = isSeriesRun ? seriesChanges.trim().split('\n').filter(line => line.trim() !== '') : [];
     
@@ -789,9 +823,10 @@ const App: React.FC = () => {
         setActiveFilters({});
     }
     
-    const combinedResults: GeneratedImage[] = [];
+    const combinedResults: (Omit<GeneratedImage, 'prompt' | 'negativePrompt' | 'settings'>)[] = [];
     const runCount = isSeriesRun ? changes.length : 1;
     const startTime = Date.now();
+    const currentSettings = { faceLockIntensity, preserveGlasses, controlNetType, aspectRatio, baseModel, characterIds, consistencyLock, stylisticBudget, simulatedForce, cameraSensor, seriesChanges: isSeriesRun ? seriesChanges : undefined };
 
     try {
       for (let i = 0; i < runCount; i++) {
@@ -826,8 +861,15 @@ const App: React.FC = () => {
       
       if (!editingOptions) {
           setGeneratedImages(combinedResults);
-          const currentSettings = { faceLockIntensity, preserveGlasses, controlNetType, aspectRatio, baseModel, characterIds, consistencyLock, stylisticBudget, simulatedForce, cameraSensor, seriesChanges: isSeriesRun ? seriesChanges : undefined };
-          const newHistoryItem: HistoryItem = { id: Date.now().toString(), prompt: isSeriesRun ? `Series: ${seriesBasePrompt}` : prompt, negativePrompt, uploadedImages, generatedImages: combinedResults, settings: currentSettings, tags: isSeriesRun ? ['series'] : [] };
+          const newHistoryItem: HistoryItem = { 
+              id: Date.now().toString(), 
+              prompt: isSeriesRun ? `Series: ${seriesBasePrompt}` : prompt, 
+              negativePrompt, 
+              uploadedImages, 
+              generatedImages: combinedResults, 
+              settings: currentSettings, 
+              tags: isSeriesRun ? ['series'] : [] 
+          };
           updateHistory([...history, newHistoryItem]);
       }
 
@@ -843,8 +885,9 @@ const App: React.FC = () => {
       setRemixingImage(null);
       setExpandingImage(null);
       setFixingImage(null);
+      setIsControlsOpen(false); // Close panel after generation on mobile
     }
-  }, [prompt, negativePrompt, uploadedImages, controlNetImage, aspectRatio, faceLockIntensity, preserveGlasses, controlNetType, baseModel, characterIds, consistencyLock, stylisticBudget, simulatedForce, cameraSensor, history, seriesBasePrompt, seriesChanges, locale]);
+  }, [prompt, negativePrompt, uploadedImages, controlNetImage, aspectRatio, faceLockIntensity, preserveGlasses, controlNetType, baseModel, characterIds, consistencyLock, stylisticBudget, simulatedForce, cameraSensor, history, seriesBasePrompt, seriesChanges, locale, updateHistory, t]);
 
   const handleUpscale = async (imageSrc: string, index: number, historyId: string) => {
     setGeneratedImages(prev => prev.map((img, i) => img.src === imageSrc ? { ...img, isUpscaling: true } : img));
@@ -908,7 +951,7 @@ const App: React.FC = () => {
 
   const allFavoritedImages = useMemo(() => {
     return history
-      .flatMap(item => item.generatedImages.map((img, index) => ({ ...img, historyId: item.id, index })))
+      .flatMap(item => item.generatedImages.map((img, index) => ({ ...img, historyId: item.id, index, prompt: item.prompt })))
       .filter(img => img.isFavorite)
       .reverse();
   }, [history]);
@@ -976,20 +1019,21 @@ const App: React.FC = () => {
             <main className={`flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto ${animationClass}`}>
                 <header className="mb-6"><h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('aboutTitle')}</h1><p className="text-sm text-gray-500 dark:text-gray-400">{t('aboutDescription')}</p></header>
                 <div className="max-w-2xl prose prose-sm sm:prose-base dark:prose-invert prose-h2:font-semibold prose-h2:text-cyan-500 bg-white dark:bg-gray-800/50 p-6 rounded-lg border border-gray-200 dark:border-gray-700">
-                    <h2>Welcome to Meta-Creative Studio</h2>
-                    <p>This application is your cognitive creative partner, designed to bring your most complex visions to life using the power of Google's Gemini AI. Here's a quick guide to some of the key features:</p>
-                    <h3>Core Lab</h3>
-                    <p>This is your primary workspace. Enter your main prompt, add negative prompts to exclude unwanted elements, and use the powerful **AI Refine** button to let Gemini enhance your ideas into professional-grade prompts.</p>
-                    <h3>Structure Lab</h3>
-                    <p>Gain precise control over your creations. Upload reference images for faces and poses. Use **Face Lock** to maintain character consistency, and define a **Character ID** to ensure your subject remains the same across different scenes and outfits.</p>
-                    <h3>Advanced Lab</h3>
-                    <p>For the ultimate control, the Advanced Lab lets you fine-tune technical parameters. Lock the creative seed for consistency, adjust aspect ratios, and even simulate different camera sensors and physical forces like wind.</p>
-                    <h3>Editing Your Images</h3>
-                    <p>Hover over any generated image to access a suite of powerful editing tools:</p>
+                    <h2>{t('aboutWelcome')}</h2>
+                    <p>{t('aboutIntro')}</p>
+                    <h3>{t('aboutCoreLab')}</h3>
+                    <p>{t('aboutCoreLabDesc')}</p>
+                    <h3>{t('aboutStructureLab')}</h3>
+                    <p>{t('aboutStructureLabDesc')}</p>
+                    <h3>{t('aboutAdvancedLab')}</h3>
+                    <p>{t('aboutAdvancedLabDesc')}</p>
+                    <h3>{t('aboutEditing')}</h3>
+                    <p>{t('aboutEditingDesc')}</p>
                     <ul>
-                        <li><strong>Remix:</strong> Re-generate the image with a completely new prompt.</li>
-                        <li><strong>Expand Canvas:</strong> Use AI to "outpaint" and expand the scene beyond its original borders.</li>
-                        <li><strong>Fix Imperfections:</strong> "Inpaint" and correct small errors by describing the fix you want.</li>
+                        <li><strong>{t('aboutRemix')}</strong></li>
+                        <li><strong>{t('aboutExpand')}</strong></li>
+                        <li><strong>{t('aboutFix')}</strong></li>
+                        <li><strong>{t('aboutCRT')}</strong></li>
                     </ul>
                 </div>
             </main>
@@ -997,19 +1041,20 @@ const App: React.FC = () => {
         case 'generator':
         default: return (
             <>
-                <main className={`flex-1 p-4 sm:p-6 lg:p-8 flex items-center justify-center ${animationClass}`}>
+                <main className={`flex-1 p-4 sm:p-6 lg:p-8 flex items-center justify-center overflow-y-auto ${animationClass}`}>
                     {isLoading ? <Placeholder isLoading={true} seriesProgress={seriesProgress} t={t} /> : generatedImages.length > 0 ? (
                     <div className="grid gap-4 sm:gap-6 w-full max-w-7xl grid-cols-1">
                         {generatedImages.map((image, index) => {
                             const historyItem = history.find(h => h.generatedImages.some(gi => gi.src === image.src));
                             if (!historyItem) return null;
                             const imageHistoryIndex = historyItem.generatedImages.findIndex(gi => gi.src === image.src);
+                            const fullImage = { ...image, prompt: historyItem.prompt, negativePrompt: historyItem.negativePrompt, settings: historyItem.settings };
         
                             return (
                             <div key={`${image.src}-${index}`} className="rounded-lg overflow-hidden bg-white dark:bg-black/20 shadow-lg relative group">
                                 {image.isUpscaling && <div className="absolute inset-0 bg-black/80 backdrop-blur-sm flex flex-col justify-center items-center z-20"><div className="w-12 h-12 border-4 border-dashed rounded-full animate-spin border-cyan-400"></div><p className="text-white mt-3 font-semibold">{t('upscaling')}</p></div>}
                                 <img src={image.src} alt={`Generated image ${index + 1}`} className="w-full h-full object-contain" style={{ filter: FILTERS[activeFilters[index] || 'none'] }}/>
-                                <div className="absolute top-2 right-2 text-xs bg-black/40 text-white rounded-full px-2 py-0.5 backdrop-blur-sm">
+                                <div className="absolute top-2 right-2 text-xs bg-black/40 text-white dark:text-gray-200 rounded-full px-2 py-0.5 backdrop-blur-sm">
                                     {image.generationTime ? `${(image.generationTime / 1000).toFixed(1)}s` : '...'}
                                 </div>
                                 <div className="absolute top-3 right-3 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300 -translate-x-4 group-hover:translate-x-0">
@@ -1025,22 +1070,44 @@ const App: React.FC = () => {
                                     <div className="w-px h-5 bg-gray-600 mx-1"></div>
                                     <Tooltip content={t('tooltipAddObject')}><button onClick={() => {setEditingImage({src: image.src, index: imageHistoryIndex}); setShowAddObjectSketch(true);}} className="text-gray-200 p-2 rounded-full hover:bg-white/20 transition-colors"><BrushIcon className="w-4 h-4"/></button></Tooltip>
                                     <Tooltip content={t('tooltipAddPerson')}><button onClick={() => {setEditingImage({src: image.src, index: imageHistoryIndex}); setShowAddPerson(true);}} className="text-gray-200 p-2 rounded-full hover:bg-white/20 transition-colors"><UserPlusIcon className="w-4 h-4"/></button></Tooltip>
-                                    <Tooltip content={t('tooltipRemix')}><button onClick={() => setRemixingImage({...image, index: imageHistoryIndex})} className="text-gray-200 p-2 rounded-full hover:bg-white/20 transition-colors"><RemixIcon className="w-4 h-4"/></button></Tooltip>
-                                    <Tooltip content={t('tooltipExpand')}><button onClick={() => setExpandingImage({...image, index: imageHistoryIndex})} className="text-gray-200 p-2 rounded-full hover:bg-white/20 transition-colors"><ExpandIcon className="w-4 h-4"/></button></Tooltip>
-                                    <Tooltip content={t('tooltipFix')}><button onClick={() => setFixingImage({...image, index: imageHistoryIndex})} className="text-gray-200 p-2 rounded-full hover:bg-white/20 transition-colors"><FixIcon className="w-4 h-4"/></button></Tooltip>
+                                    <Tooltip content={t('tooltipRemix')}><button onClick={() => setRemixingImage({...(fullImage as GeneratedImage), index: imageHistoryIndex})} className="text-gray-200 p-2 rounded-full hover:bg-white/20 transition-colors"><RemixIcon className="w-4 h-4"/></button></Tooltip>
+                                    <Tooltip content={t('tooltipExpand')}><button onClick={() => setExpandingImage({...(fullImage as GeneratedImage), index: imageHistoryIndex})} className="text-gray-200 p-2 rounded-full hover:bg-white/20 transition-colors"><ExpandIcon className="w-4 h-4"/></button></Tooltip>
+                                    <Tooltip content={t('tooltipFix')}><button onClick={() => setFixingImage({...(fullImage as GeneratedImage), index: imageHistoryIndex})} className="text-gray-200 p-2 rounded-full hover:bg-white/20 transition-colors"><FixIcon className="w-4 h-4"/></button></Tooltip>
                                 </div>
                             </div>
                             )})}
                     </div>
                     ) : <Placeholder t={t}/>}
+                    <button
+                        onClick={() => setIsControlsOpen(true)}
+                        className="lg:hidden fixed bottom-6 right-6 z-20 bg-cyan-600 text-white p-4 rounded-full shadow-lg hover:bg-cyan-700 transition-colors"
+                        aria-label={t('openControls')}
+                    >
+                        <AdjustmentsHorizontalIcon className="w-6 h-6" />
+                    </button>
                 </main>
+                
+                {isControlsOpen && (
+                    <div 
+                        className="fixed inset-0 bg-black/50 z-30 lg:hidden"
+                        onClick={() => setIsControlsOpen(false)}
+                    ></div>
+                )}
         
-                <aside className="w-full lg:w-[400px] xl:w-[450px] bg-white dark:bg-gray-950 border-l border-gray-200 dark:border-gray-800 p-6 flex flex-col transition-opacity duration-300">
-                    <header className="mb-6"><h1 className="text-xl font-semibold text-gray-900 dark:text-white">{t('appTitle')}</h1><p className="text-sm text-gray-500 dark:text-gray-400">{t('appSubtitle')}</p></header>
+                <aside className={`w-full max-w-sm bg-white dark:bg-gray-950/95 backdrop-blur-sm p-6 flex flex-col border-gray-200 dark:border-gray-800 transition-transform duration-300 ease-in-out fixed top-0 right-0 h-full z-40 transform ${isControlsOpen ? 'translate-x-0' : 'translate-x-full'} lg:static lg:transform-none lg:h-auto lg:max-w-none lg:w-[400px] xl:w-[450px] lg:border-l lg:z-auto`}>
+                    <header className="mb-6 flex justify-between items-start">
+                        <div>
+                            <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{t('appTitle')}</h1>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">{t('appSubtitle')}</p>
+                        </div>
+                        <button onClick={() => setIsControlsOpen(false)} className="lg:hidden p-1 -mr-1 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full">
+                            <CloseIcon className="w-6 h-6" />
+                        </button>
+                    </header>
                     
                     <div className="flex bg-gray-100 dark:bg-gray-900 p-1 rounded-lg mb-4 border border-gray-200 dark:border-gray-700/50"><LabButton labName="core" icon={<SparklesIcon className="w-4 h-4"/>}>{t('core')}</LabButton><LabButton labName="structure" icon={<AdjustmentsHorizontalIcon className="w-4 h-4"/>}>{t('structure')}</LabButton><LabButton labName="advanced" icon={<BeakerIcon className="w-4 h-4"/>}>{t('advanced')}</LabButton></div>
         
-                    <div className="flex-1 flex flex-col overflow-y-auto pr-2 -mr-4 border border-gray-200 dark:border-gray-800 rounded-lg">
+                    <div className="flex-1 flex flex-col overflow-y-auto pr-2 -mr-4 border border-gray-200 dark:border-gray-800 rounded-lg bg-white dark:bg-gray-950">
                         {activeLab === 'core' && (<>
                             <Accordion title={t('promptLabel')} defaultOpen>
                                 <div className="space-y-4">
@@ -1119,7 +1186,7 @@ const App: React.FC = () => {
     {printExportImage && <PrintExportModal imageSrc={printExportImage} onClose={() => setPrintExportImage(null)} t={t} />}
     {showHistory && <HistoryModal history={history} folders={folders} onUpdateHistory={updateHistory} onUpdateFolders={updateFolders} onClose={() => setShowHistory(false)} t={t}/>}
     {showSketch && <SketchModal onClose={() => setShowSketch(false)} onSave={handleSketchSave} t={t}/>}
-    {showNarrative && generatedImages.length > 0 && <NarrativeModal images={generatedImages} onClose={() => setShowNarrative(false)} t={t} locale={locale} />}
+    {showNarrative && generatedImages.length > 0 && <NarrativeModal images={generatedImages.map(img => ({...img, prompt: '', negativePrompt: '', settings: {}}))} onClose={() => setShowNarrative(false)} t={t} locale={locale} />}
     
     {remixingImage && <EditImageModal imageSrc={remixingImage.src} onClose={() => setRemixingImage(null)} onSave={(editPrompt) => { const historyId = findImageHistoryId(remixingImage.src); if(historyId) handleSubmit(false, { baseImage: { ...remixingImage, historyId }, editPrompt }); }} t={t} titleKey="remixImageTitle" descriptionKey="remixImageDescription" placeholderKey="remixPlaceholder" />}
     {expandingImage && <EditImageModal imageSrc={expandingImage.src} onClose={() => setExpandingImage(null)} onSave={(editPrompt) => { const historyId = findImageHistoryId(expandingImage.src); if(historyId) handleSubmit(false, { baseImage: { ...expandingImage, historyId }, editPrompt }); }} t={t} titleKey="expandCanvasTitle" descriptionKey="expandCanvasDescription" placeholderKey="expandPlaceholder" />}
@@ -1128,16 +1195,16 @@ const App: React.FC = () => {
     {showAddObjectSketch && editingImage && <AddObjectSketchModal imageSrc={editingImage.src} onClose={() => setShowAddObjectSketch(false)} onSave={(mask, objPrompt)=>{
         const editPrompt = locale === 'vi' ? `Trong ảnh gốc, thêm "${objPrompt}" vào khu vực được phác thảo trong ảnh thứ hai.` : `In the original image, add a "${objPrompt}" in the area sketched in the second image.`;
         const historyId = findImageHistoryId(editingImage.src); if(!historyId) return;
-        handleSubmit(false, { baseImage: { ...generatedImages.find(g => g.src === editingImage.src)!, index: editingImage.index, historyId }, newImages: [{file: new File([], 'mask.png'), base64: mask}], editPrompt });
+        handleSubmit(false, { baseImage: { ...(generatedImages.find(g => g.src === editingImage.src)!), index: editingImage.index, historyId }, newImages: [{file: new File([], 'mask.png'), base64: mask}], editPrompt });
     }} t={t} />}
     {showAddPerson && editingImage && <AddPersonModal baseImageSrc={editingImage.src} onClose={() => setShowAddPerson(false)} onSave={(imageToAdd, personPrompt)=>{
         const editPrompt = personPrompt || (locale === 'vi' ? 'Thêm người này vào cảnh một cách tự nhiên.' : 'Add this person into the scene naturally.');
         const historyId = findImageHistoryId(editingImage.src); if(!historyId) return;
-        handleSubmit(false, { baseImage: { ...generatedImages.find(g => g.src === editingImage.src)!, index: editingImage.index, historyId }, newImages: [imageToAdd], editPrompt });
+        handleSubmit(false, { baseImage: { ...(generatedImages.find(g => g.src === editingImage.src)!), index: editingImage.index, historyId }, newImages: [imageToAdd], editPrompt });
     }} t={t} />}
 
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200 flex font-sans antialiased">
-      <nav className="w-20 bg-white dark:bg-gray-950 border-r border-gray-200 dark:border-gray-800 flex flex-col items-center p-4">
+      <nav className="w-20 bg-white dark:bg-black/20 border-r border-gray-200 dark:border-gray-800 flex-col items-center p-4 hidden sm:flex">
           <div className="w-10 h-10 mb-8 bg-cyan-500 rounded-lg flex items-center justify-center font-bold text-black text-2xl shrink-0">D</div>
           <div className="flex flex-col items-center justify-start space-y-2 flex-grow">
               <NavButton viewName="gallery" title={t('navGallery')}><HomeIcon className="w-6 h-6"/></NavButton>
@@ -1160,8 +1227,18 @@ const App: React.FC = () => {
           </div>
       </nav>
 
-        {mainContent()}
-
+        <div className="flex-1 flex flex-col lg:flex-row overflow-y-auto lg:overflow-hidden">
+            {mainContent()}
+        </div>
+        
+        {/* Bottom Nav for Mobile */}
+        <nav className="sm:hidden fixed bottom-0 left-0 right-0 bg-white/80 dark:bg-black/50 backdrop-blur-md border-t border-gray-200 dark:border-gray-700 flex justify-around p-2 z-30">
+            <NavButton viewName="gallery" title={t('navGallery')}><HomeIcon className="w-6 h-6"/></NavButton>
+            <NavButton viewName="generator" title={t('navGenerator')}><Squares2X2Icon className="w-6 h-6" /></NavButton>
+            <Tooltip content={t('navHistory')}><button onClick={() => setShowHistory(true)} className="p-3 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors duration-200 ease-in-out"><HistoryIcon className="w-6 h-6"/></button></Tooltip>
+            <NavButton viewName="settings" title={t('navSettings')}><CogIcon className="w-6 h-6"/></NavButton>
+            <NavButton viewName="about" title={t('navAbout')}><QuestionMarkCircleIcon className="w-6 h-6"/></NavButton>
+        </nav>
     </div>
     </>
   );
