@@ -30,8 +30,8 @@ const callGemini = async (prompt: string, imageParts: { inlineData: { mimeType: 
     for (const part of response.candidates?.[0]?.content?.parts ?? []) {
       if (part.inlineData) {
         const base64ImageBytes: string = part.inlineData.data;
-        // The model returns jpeg, so we can hardcode the mime type
-        generatedImages.push(`data:image/jpeg;base64,${base64ImageBytes}`);
+        const mimeType = part.inlineData.mimeType;
+        generatedImages.push(`data:${mimeType};base64,${base64ImageBytes}`);
       }
     }
 
@@ -78,13 +78,15 @@ export const upscaleImage = async (base64Image: string): Promise<string[]> => {
     return callGemini(prompt, [imagePart]);
 };
 
-export const refinePrompt = async (userPrompt: string): Promise<string> => {
+export const refinePrompt = async (userPrompt: string, locale: 'en' | 'vi'): Promise<string> => {
     if (!process.env.API_KEY) {
         throw new Error("The API_KEY environment variable is not set.");
     }
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-    const instruction = `You are an expert prompt engineer for AI image generation models. Rewrite and expand the following user's prompt to be highly detailed and optimized. Add specifics about lighting, camera angles, art style, composition, and technical parameters like lens type and resolution. The output should be only the refined prompt, without any conversational text or preamble. User prompt: "${userPrompt}"`;
+    const instruction = locale === 'vi' 
+        ? `Bạn là một kỹ sư prompt chuyên nghiệp cho các mô hình tạo ảnh AI. Hãy viết lại và mở rộng prompt sau của người dùng để nó trở nên cực kỳ chi tiết và được tối ưu hóa. Thêm các chi tiết cụ thể về ánh sáng, góc máy, phong cách nghệ thuật, bố cục và các thông số kỹ thuật như loại ống kính và độ phân giải. Đầu ra chỉ nên là prompt đã được tinh chỉnh bằng tiếng Việt, không có bất kỳ văn bản trò chuyện hay lời nói đầu nào. Prompt của người dùng: "${userPrompt}"`
+        : `You are an expert prompt engineer for AI image generation models. Rewrite and expand the following user's prompt to be highly detailed and optimized. Add specifics about lighting, camera angles, art style, composition, and technical parameters like lens type and resolution. The output should be only the refined prompt, without any conversational text or preamble. User prompt: "${userPrompt}"`;
     
     try {
         const response = await ai.models.generateContent({
@@ -106,13 +108,16 @@ export const refinePrompt = async (userPrompt: string): Promise<string> => {
     }
 };
 
-export const generateNarrative = async (images: ImagePart[]): Promise<string> => {
+export const generateNarrative = async (images: ImagePart[], locale: 'en' | 'vi'): Promise<string> => {
     if (!process.env.API_KEY) {
         throw new Error("The API_KEY environment variable is not set.");
     }
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-    const textPart = { text: "Based on the following image(s), write a short, evocative, and artistic story or description. Capture the mood, setting, and potential narrative behind the visuals." };
+    const textPart = { text: locale === 'vi' 
+        ? "Dựa trên (các) hình ảnh sau, hãy viết một câu chuyện hoặc mô tả ngắn, gợi cảm và nghệ thuật bằng tiếng Việt. Nắm bắt tâm trạng, bối cảnh và câu chuyện tiềm ẩn đằng sau hình ảnh."
+        : "Based on the following image(s), write a short, evocative, and artistic story or description. Capture the mood, setting, and potential narrative behind the visuals." };
+        
     const imagePartsForApi = images.map(img => ({
         inlineData: {
             mimeType: img.mimeType,
