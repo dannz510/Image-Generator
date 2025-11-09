@@ -1,14 +1,27 @@
 
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import ReactCrop, { type Crop, type PixelCrop, centerCrop, makeAspectCrop } from 'react-image-crop';
-import { generateImageWithPromptAndImages, upscaleImage, refinePrompt, generateNarrative, saveData, loadData } from './services/geminiService';
+// FIX: Import ImagePart and GenerationConfig types for type safety and to fix argument errors.
+import { 
+    generateImageWithPromptAndImages, 
+    upscaleImage, 
+    refinePrompt, 
+    generateNarrative, 
+    saveData, 
+    loadData, 
+    type ImagePart, 
+    type GenerationConfig,
+    analyzelmageStyleAndGeneratePrompt,
+    analyzeAndScorePrompt,
+    type PromptAnalysisResult
+} from './services/geminiService';
 import { translations } from './translations';
 import { 
     GenerateIcon, ImageIcon, DownloadIcon, CloseIcon, UploadIcon, HistoryIcon, UpscaleIcon, CropIcon, RefineIcon, SaveIcon, FilterIcon, 
     RemixIcon, ExpandIcon, FixIcon, LockClosedIcon, QueueListIcon, CpuChipIcon, Squares2X2Icon, PrinterIcon, FolderIcon, TagIcon, 
     FolderPlusIcon, SearchIcon, MicrophoneIcon, PencilSquareIcon, BeakerIcon, GlobeAltIcon, BookOpenIcon, AdjustmentsHorizontalIcon, 
     ArrowsRightLeftIcon, CameraIcon, SparklesIcon, LanguageIcon, SunIcon, MoonIcon, BrushIcon, UserPlusIcon,
-    HomeIcon, CogIcon, QuestionMarkCircleIcon, StarIcon, TrashIcon, CodeBracketSquareIcon, ArrowLeftIcon, ClipboardIcon, BookmarkSquareIcon
+    HomeIcon, CogIcon, QuestionMarkCircleIcon, StarIcon, TrashIcon, CodeBracketSquareIcon, ArrowLeftIcon, ClipboardIcon, BookmarkSquareIcon, CubeIcon
 } from './components/icons';
 import { fileToBase64 } from './utils/fileUtils';
 
@@ -23,6 +36,7 @@ if (recognition) {
 
 type Locale = 'en' | 'vi';
 type ActiveView = 'generator' | 'gallery' | 'favorites' | 'settings' | 'about';
+type AssetStatus = 'persisted' | 'pending' | 'failed';
 
 // Utility function to get cropped image data URL
 function getCroppedImg(
@@ -100,7 +114,7 @@ const CropperModal: React.FC<{ imageSrc: string; onClose: () => void; onCrop: (c
             <div className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col">
                 <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center"><h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">{t('cropImageTitle')}</h2><button onClick={onClose} className="text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white"><CloseIcon className="w-6 h-6" /></button></div>
                 <div className="p-6 flex-1 overflow-y-auto flex justify-center items-center bg-gray-100 dark:bg-gray-900/50"><ReactCrop crop={crop} onChange={c => setCrop(c)} onComplete={c => setCompletedCrop(c)}><img ref={imgRef} src={imageSrc} onLoad={onImageLoad} style={{ maxHeight: '60vh' }} alt="Crop preview" /></ReactCrop></div>
-                <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-end items-center gap-4 bg-gray-50 dark:bg-gray-800/50 rounded-b-lg"><button onClick={onClose} className="bg-gray-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-gray-600 transition-colors">{t('cancelButton')}</button><button onClick={handleApplyCrop} className="bg-cyan-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-cyan-700 transition-colors">{t('applyCropButton')}</button></div>
+                <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-end items-center gap-4 bg-gray-50 dark:bg-gray-800/50 rounded-b-lg"><button onClick={onClose} className="bg-gray-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-gray-600 transition-colors">{t('cancelButton')}</button><button onClick={handleApplyCrop} disabled={!completedCrop} className="bg-cyan-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-cyan-700 transition-colors disabled:opacity-50">{t('applyCropButton')}</button></div>
             </div>
         </div>
     );
@@ -149,7 +163,7 @@ const AdvancedEditModal: React.FC<{
     const handleSave = () => {
         const canvas = canvasRef.current;
         if (canvas) {
-            onSave(canvas.toDataURL('image/jpeg', 0.95));
+            onSave(canvas.toDataURL('image/jpeg', 0.98));
         }
     };
     
@@ -220,7 +234,7 @@ const EditImageModal: React.FC<{
                 </div>
                 <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-end items-center gap-4 bg-gray-50 dark:bg-gray-800/50 rounded-b-lg">
                     <button onClick={onClose} className="bg-gray-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-gray-600 transition-colors">{t('cancelButton')}</button>
-                    <button onClick={() => onSave(editPrompt)} disabled={!editPrompt.trim()} className="bg-cyan-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-cyan-700 disabled:bg-gray-400 dark:disabled:bg-gray-600 transition-colors">{t('generateButton')}</button>
+                    <button onClick={() => onSave(editPrompt)} disabled={!editPrompt.trim()} className="bg-cyan-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-cyan-700 transition-colors disabled:opacity-50">{t('generateButton')}</button>
                 </div>
             </div>
         </div>
@@ -363,7 +377,7 @@ const AddObjectSketchModal: React.FC<{ imageSrc: string; onClose: () => void; on
                     <canvas ref={canvasRef} className="rounded-md cursor-crosshair w-full h-auto" style={{maxHeight: '50vh', aspectRatio: 'auto'}} onMouseDown={startDrawing} onMouseUp={stopDrawing} onMouseOut={stopDrawing} onMouseMove={draw}></canvas>
                     <input type="text" value={objectPrompt} onChange={e => setObjectPrompt(e.target.value)} placeholder={t('addObjectSketchPlaceholder')} className="mt-4 w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-sm rounded-lg p-2 focus:ring-cyan-500 focus:border-cyan-500"/>
                 </div>
-                <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-end items-center gap-4 bg-gray-50 dark:bg-gray-800/50 rounded-b-lg"><button onClick={onClose} className="bg-gray-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-gray-600 transition-colors">{t('cancelButton')}</button><button onClick={handleSave} disabled={!objectPrompt.trim()} className="bg-cyan-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-cyan-700 disabled:bg-gray-400 dark:disabled:bg-gray-600 transition-colors">{t('addButton')}</button></div>
+                <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-end items-center gap-4 bg-gray-50 dark:bg-gray-800/50 rounded-b-lg"><button onClick={onClose} className="bg-gray-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-gray-600 transition-colors">{t('cancelButton')}</button><button onClick={handleSave} disabled={!objectPrompt.trim()} className="bg-cyan-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-cyan-700 transition-colors disabled:opacity-50">{t('addButton')}</button></div>
             </div>
         </div>
     )
@@ -400,7 +414,7 @@ const AddPersonModal: React.FC<{ baseImageSrc: string, onSave: (imageToAdd: {fil
                 <div className="px-6 pb-6">
                      <input type="text" value={addPersonPrompt} onChange={e => setAddPersonPrompt(e.target.value)} placeholder={t('addPersonPlaceholder')} className="mt-4 w-full bg-gray-50 dark:bg-gray-700/50 border border-gray-300 dark:border-gray-600 text-sm rounded-lg p-2 focus:ring-cyan-500 focus:border-cyan-500"/>
                 </div>
-                <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-end items-center gap-4 bg-gray-50 dark:bg-gray-800/50 rounded-b-lg"><button onClick={onClose} className="bg-gray-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-gray-600 transition-colors">{t('cancelButton')}</button><button onClick={()=> imageToAdd && onSave(imageToAdd, addPersonPrompt)} disabled={!imageToAdd || !addPersonPrompt.trim()} className="bg-cyan-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-cyan-700 disabled:bg-gray-400 dark:disabled:bg-gray-600 transition-colors">{t('addButton')}</button></div>
+                <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-end items-center gap-4 bg-gray-50 dark:bg-gray-800/50 rounded-b-lg"><button onClick={onClose} className="bg-gray-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-gray-600 transition-colors">{t('cancelButton')}</button><button onClick={()=> imageToAdd && onSave(imageToAdd, addPersonPrompt)} disabled={!imageToAdd || !addPersonPrompt.trim()} className="bg-cyan-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-cyan-700 transition-colors disabled:opacity-50">{t('addButton')}</button></div>
             </div>
         </div>
     )
@@ -448,8 +462,8 @@ Image 1 (portrait): Character holds a transparent umbrella, looking back at the 
 Image 2 (full body): Character with umbrella, alone in a vast snowy field, looking up to catch snowflakes. Shot from above. Distant bare trees. Conveys smallness and isolation.
 Image 3 (close-up): Zoomed-in on the character's sorrowful, yearning eyes.`;
 interface UploadedImage { file: File; base64: string; }
-interface GeneratedImage { id: string; src: string; tags: string[]; generationTime?: number; isFavorite?: boolean; prompt: string; negativePrompt: string; settings: any;}
-interface GalleryImage { id: string; src: string; prompt: string; negativePrompt: string; settings: any; generationTime?: number; historyId: string; imageId: string; }
+interface GeneratedImage { id: string; src: string; tags: string[]; generationTime?: number; isFavorite?: boolean; prompt: string; negativePrompt: string; settings: any; status?: AssetStatus;}
+interface GalleryImage { id: string; src: string; prompt: string; negativePrompt: string; settings: any; generationTime?: number; historyId: string; imageId: string; status?: AssetStatus; }
 interface HistoryItem { id: string; prompt: string; negativePrompt: string; generatedImages: (Omit<GeneratedImage, 'prompt' | 'negativePrompt' | 'settings'>)[]; settings: any; tags: string[]; folderId?: string; }
 interface Folder { id: string; name: string; }
 interface StyleProfile {
@@ -470,6 +484,17 @@ interface StyleProfile {
 const HISTORY_LIMIT = 10;
 const GALLERY_LIMIT = 25;
 
+// MOCK API for Optimistic UI
+const persistAction = async (action: 'FAVORITE' | 'DELETE' | 'ADD_GALLERY', historyId: string, value?: boolean) => {
+    // MOCK NETWORK LATENCY (300ms)
+    await new Promise(resolve => setTimeout(resolve, 300)); 
+    
+    // MOCK FAILURE (10% chance to test Rollback)
+    if (Math.random() < 0.1) {
+        throw new Error("API_FAIL: Synchronization failed.");
+    }
+    return true;
+};
 
 const Placeholder: React.FC<{ isLoading?: boolean, seriesProgress?: {current: number, total: number}, t: (key: keyof typeof translations) => string; }> = ({ isLoading = false, seriesProgress, t }) => (
   <div className="w-full h-full min-h-[400px] max-w-7xl bg-gray-200/50 dark:bg-gray-800/20 rounded-lg flex flex-col justify-center items-center p-8 text-center border border-gray-200 dark:border-gray-700/50 transition-all duration-300">
@@ -696,6 +721,7 @@ const App: React.FC = () => {
   const [showAddPerson, setShowAddPerson] = useState(false);
   const [activeView, setActiveView] = useState<ActiveView>('generator');
   const [copied, setCopied] = useState(false);
+  const [stylePromptSnippet, setStylePromptSnippet] = useState<string | null>(null);
   
   const [remixingImage, setRemixingImage] = useState<(Omit<GeneratedImage, 'prompt'|'negativePrompt'|'settings'> & { index: number }) | null>(null);
   const [expandingImage, setExpandingImage] = useState<(Omit<GeneratedImage, 'prompt'|'negativePrompt'|'settings'> & { index: number }) | null>(null);
@@ -708,15 +734,21 @@ const App: React.FC = () => {
   // Granular Processing State
   const [processingImages, setProcessingImages] = useState<Map<string, string>>(new Map());
 
+  // Prompt Analysis State
+  const [isAnalyzingPrompt, setIsAnalyzingPrompt] = useState<boolean>(false);
+  const [promptAnalysis, setPromptAnalysis] = useState<PromptAnalysisResult | null>(null);
+
 
   // Responsive state
   const [isControlsOpen, setIsControlsOpen] = useState(false);
 
   // i18n helper
   const t = useCallback((key: keyof typeof translations) => {
-    return translations[key][locale] || translations[key]['en'];
+    return translations[key]?.[locale] || translations[key]?.['en'] || key;
   }, [locale]);
 
+  // FIX: Decouple theme loading from user data loading for reliability.
+  // Effect to apply theme class and save changes
   useEffect(() => {
     const doc = document.documentElement;
     if (theme === 'dark') {
@@ -729,6 +761,20 @@ const App: React.FC = () => {
     saveData('dannz-theme', theme);
     doc.lang = locale;
   }, [theme, locale]);
+
+  // Effect to load theme on initial mount
+  useEffect(() => {
+    const loadTheme = async () => {
+      const savedTheme = await loadData('dannz-theme');
+      // Set default theme if nothing is saved
+      if (savedTheme === 'light' || savedTheme === 'dark') {
+        setTheme(savedTheme);
+      } else {
+        setTheme('dark');
+      }
+    };
+    loadTheme();
+  }, []); // Runs only once on mount
 
   // Voice Prompt
   const [isListening, setIsListening] = useState(false);
@@ -767,12 +813,13 @@ const App: React.FC = () => {
   const controlNetInputRef = useRef<HTMLInputElement>(null);
   const fineTuneInputRef = useRef<HTMLInputElement>(null);
   
+  // FIX: Update state optimistically BEFORE awaiting the async save operation.
   const updateHistory = useCallback(async (newHistory: HistoryItem[]) => {
+      setHistory(newHistory);
       try {
         if (userId) {
           await saveData(`dannz-generation-history-${userId}`, newHistory);
         }
-        setHistory(newHistory);
       } catch (e) {
         console.error("Failed to save history to IDB:", e);
         setError(t('storageGenericError'));
@@ -780,11 +827,11 @@ const App: React.FC = () => {
   }, [userId, t]);
   
   const updateFolders = useCallback(async (newFolders: Folder[]) => {
+      setFolders(newFolders);
       try {
         if (userId) {
           await saveData(`dannz-project-folders-${userId}`, newFolders);
         }
-        setFolders(newFolders);
       } catch (e) {
         console.error("Failed to save folders to IDB:", e);
         setError(t('storageGenericError'));
@@ -792,11 +839,11 @@ const App: React.FC = () => {
   }, [userId, t]);
 
   const updateStyleProfiles = useCallback(async (newProfiles: StyleProfile[]) => {
+      setStyleProfiles(newProfiles);
       try {
         if (userId) {
           await saveData(`dannz-style-profiles-${userId}`, newProfiles);
         }
-        setStyleProfiles(newProfiles);
       } catch (e) {
         console.error("Failed to save profiles to IDB:", e);
         setError(t('storageGenericError'));
@@ -804,11 +851,11 @@ const App: React.FC = () => {
   }, [userId, t]);
 
   const updateGallery = useCallback(async (newGallery: GalleryImage[]) => {
+      setGallery(newGallery);
       try {
         if (userId) {
           await saveData(`dannz-gallery-collection-${userId}`, newGallery);
         }
-        setGallery(newGallery);
       } catch (e) {
         console.error("Failed to save gallery to IDB:", e);
         setError(t('storageGenericError'));
@@ -861,9 +908,6 @@ const App: React.FC = () => {
             const savedGallery = (await loadData(`dannz-gallery-collection-${userId}`)) || [];
             if(Array.isArray(savedGallery)) setGallery(savedGallery);
             
-            const savedTheme = (await loadData('dannz-theme')) || 'dark';
-            if (savedTheme === 'light' || savedTheme === 'dark') setTheme(savedTheme);
-
         } catch (e) { 
             console.error("Failed to load data from IndexedDB", e);
             setError(t('storageGenericError'));
@@ -983,18 +1027,36 @@ const App: React.FC = () => {
     }, [history, updateHistory, updateGallery, viewingGalleryImage, gallery]);
 
 
-  const handleFavoriteToggle = (historyItemId: string, imageId: string, isFavorite: boolean) => {
-    updateImageInStates(historyItemId, imageId, { isFavorite: !isFavorite });
-  };
+  const handleFavoriteToggle = useCallback(async (historyId: string, imageId: string, isCurrentlyFavorite: boolean) => {
+    // 1. Optimistic update
+    updateImageInStates(historyId, imageId, { isFavorite: !isCurrentlyFavorite, status: 'pending' });
+
+    try {
+        // 2. Persist
+        await persistAction('FAVORITE', imageId, !isCurrentlyFavorite);
+        
+        // 3. Success
+        updateImageInStates(historyId, imageId, { status: 'persisted' });
+    } catch (error) {
+        // 4. Rollback
+        console.error(error);
+        setError(t('syncFailedRollback'));
+        updateImageInStates(historyId, imageId, { isFavorite: isCurrentlyFavorite, status: 'failed' });
+    }
+  }, [updateImageInStates, t]);
   
-  const handleDeleteImage = (historyItemId: string, imageId: string) => {
+  const handleDeleteImage = useCallback(async (historyId: string, imageId: string) => {
       if (!window.confirm(t('deleteConfirmation'))) return;
 
-      const imageToRemove = history.find(h => h.id === historyItemId)?.generatedImages.find(img => img.id === imageId);
-      if (!imageToRemove) return;
+      // 1. Store previous state for rollback
+      const prevHistory = [...history];
+      const prevGallery = [...gallery];
+      const prevGeneratedImages = [...generatedImages];
+      const prevViewingImage = viewingGalleryImage && viewingGalleryImage.imageId === imageId ? { ...viewingGalleryImage } : null;
 
+      // 2. Optimistic update
       const newHistory = history.map(item => {
-          if (item.id === historyItemId) {
+          if (item.id === historyId) {
               const newGeneratedImages = item.generatedImages.filter(img => img.id !== imageId);
               if (newGeneratedImages.length === 0) return null; // Mark for deletion
               return { ...item, generatedImages: newGeneratedImages };
@@ -1002,13 +1064,23 @@ const App: React.FC = () => {
           return item;
       }).filter(Boolean) as HistoryItem[];
       updateHistory(newHistory);
-      
       updateGallery(gallery.filter(g => g.imageId !== imageId));
       setGeneratedImages(generatedImages.filter(g => g.id !== imageId));
-      if (viewingGalleryImage?.imageId === imageId) {
-          setViewingGalleryImage(null);
+      if (prevViewingImage) setViewingGalleryImage(null);
+
+      try {
+          // 3. Persist
+          await persistAction('DELETE', imageId);
+      } catch (error) {
+          // 4. Rollback
+          console.error(error);
+          setError(t('deleteSyncFailedRollback'));
+          updateHistory(prevHistory);
+          updateGallery(prevGallery);
+          setGeneratedImages(prevGeneratedImages);
+          if (prevViewingImage) setViewingGalleryImage(prevViewingImage);
       }
-  };
+  }, [history, gallery, generatedImages, viewingGalleryImage, updateHistory, updateGallery, t]);
 
   const handleSaveToGallery = (imageToSave: GeneratedImage, historyId: string) => {
       const isInGallery = gallery.some(item => item.imageId === imageToSave.id);
@@ -1103,7 +1175,20 @@ const App: React.FC = () => {
 
         const imageParts = allImages.map(img => ({ mimeType: img.file.type || 'image/png', data: img.base64.split(',')[1] }));
 
-        const results = await generateImageWithPromptAndImages(fullPromptForStep, imageParts);
+        const generationConfig: GenerationConfig = { stylePromptSnippet: stylePromptSnippet || undefined };
+        if (controlNetImage) {
+            generationConfig.structureReferenceImage = {
+                mimeType: controlNetImage.file.type || 'image/png',
+                data: controlNetImage.base64.split(',')[1],
+            };
+            switch(controlNetType) {
+                case 'OpenPose': generationConfig.structureMode = 'pose'; break;
+                case 'Depth Map': generationConfig.structureMode = 'depth'; break;
+                case 'Canny Edge': generationConfig.structureMode = 'canny'; break;
+            }
+        }
+
+        const results = await generateImageWithPromptAndImages(fullPromptForStep, imageParts, generationConfig);
         const generationTime = Math.round((Date.now() - startTime) / runCount);
         
         if (editingOptions && oldSrc && imageId) {
@@ -1142,15 +1227,18 @@ const App: React.FC = () => {
       setFixingImage(null);
       setIsControlsOpen(false);
     }
-  }, [prompt, negativePrompt, uploadedImages, controlNetImage, aspectRatio, faceLockIntensity, preserveGlasses, controlNetType, baseModel, characterIds, consistencyLock, stylisticBudget, simulatedForce, cameraSensor, history, gallery, seriesBasePrompt, seriesChanges, locale, updateHistory, updateGallery, viewingGalleryImage, t, updateImageInStates]);
+  }, [prompt, negativePrompt, uploadedImages, controlNetImage, aspectRatio, faceLockIntensity, preserveGlasses, controlNetType, baseModel, characterIds, consistencyLock, stylisticBudget, simulatedForce, cameraSensor, history, gallery, seriesBasePrompt, seriesChanges, locale, updateHistory, updateGallery, viewingGalleryImage, t, updateImageInStates, stylePromptSnippet]);
 
   const handleUpscale = async (imageSrc: string, imageId: string, historyId: string) => {
     setImageProcessing(imageSrc, t('processingUpscale'));
     try {
-        const [upscaledImage] = await upscaleImage(imageSrc);
+        const mimeType = imageSrc.match(/data:(.*);base64/)?.[1] || 'image/jpeg';
+        const data = imageSrc.split(',')[1];
+        const imagePart: ImagePart = { mimeType, data };
+        const upscaledImage = await upscaleImage(imagePart, 4, 'Sharpened details, 8K, cinematic texture');
         updateImageInStates(historyId, imageId, { src: upscaledImage });
     } catch (err) {
-        setError("Failed to upscale image. Please try again.");
+        setError(err instanceof Error ? err.message : "Failed to upscale image. Please try again.");
     } finally {
         setImageProcessing(imageSrc, null);
     }
@@ -1203,6 +1291,23 @@ const App: React.FC = () => {
   const handleDeleteProfile = (profileId: string) => {
       updateStyleProfiles(styleProfiles.filter(p => p.id !== profileId));
   };
+
+  const handleAnalyzePrompt = useCallback(async () => {
+    if (!prompt) return;
+    setIsAnalyzingPrompt(true);
+    setPromptAnalysis(null);
+    try {
+        const result = await analyzeAndScorePrompt(prompt, stylePromptSnippet); 
+        setPromptAnalysis(result);
+        setError(null);
+    } catch (e) {
+        console.error("Prompt analysis error:", e);
+        setError(t('promptAnalysisError'));
+        setPromptAnalysis(null);
+    } finally {
+        setIsAnalyzingPrompt(false);
+    }
+  }, [prompt, stylePromptSnippet, t]);
   
   const LabButton: React.FC<{labName: string; children: React.ReactNode; icon: React.ReactNode}> = ({labName, children, icon}) => (
     <button onClick={() => setActiveLab(labName)} className={`flex-1 p-2 text-xs font-semibold rounded-md flex items-center justify-center gap-2 transition-colors duration-200 ${activeLab === labName ? 'bg-cyan-600 text-white shadow-md' : 'bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-700'}`}>{icon}{children}</button>
@@ -1242,12 +1347,21 @@ const App: React.FC = () => {
                 <header className="mb-6"><h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('galleryTitle')}</h1><p className="text-sm text-gray-500 dark:text-gray-400">{t('galleryDescription')}</p></header>
                 {gallery.length > 0 ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                        {[...gallery].reverse().map((image) => (
-                            <div key={image.id} onClick={() => setViewingGalleryImage(image)} className="group relative rounded-lg overflow-hidden shadow-lg hover:shadow-cyan-500/20 transition-shadow duration-300 cursor-pointer">
+                        {[...gallery].reverse().map((image) => {
+                            const isPending = image.status === 'pending';
+                            const isFailed = image.status === 'failed';
+                            return (
+                            <div key={image.id} onClick={() => setViewingGalleryImage(image)} className={`group relative rounded-lg overflow-hidden shadow-lg hover:shadow-cyan-500/20 transition-shadow duration-300 cursor-pointer ${isPending ? 'opacity-50 pointer-events-none' : ''}`}>
+                                {(isPending || isFailed) && (
+                                    <div className="absolute inset-0 bg-white/50 dark:bg-black/50 flex items-center justify-center rounded-lg z-10">
+                                        {isPending && <SparklesIcon className="w-8 h-8 animate-spin text-cyan-500" />}
+                                        {isFailed && <CloseIcon className="w-8 h-8 text-red-500" />} 
+                                    </div>
+                                )}
                                 <img src={image.src} className="w-full h-full object-cover aspect-square" />
                                 <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
                             </div>
-                        ))}
+                        )})}
                     </div>
                 ) : (
                     <div className="flex flex-col items-center justify-center h-full text-center text-gray-500">
@@ -1270,8 +1384,16 @@ const App: React.FC = () => {
                             const formattedDate = date.toLocaleDateString(locale === 'vi' ? 'vi-VN' : 'en-US', { day: '2-digit', month: '2-digit', year: 'numeric'});
                             const formattedTime = date.toLocaleTimeString(locale === 'vi' ? 'vi-VN' : 'en-US', { hour: '2-digit', minute: '2-digit' });
 
+                            const isPending = image.status === 'pending';
+                            const isFailed = image.status === 'failed';
                             return (
-                                <div key={image.src} className="group relative rounded-lg overflow-hidden shadow-lg hover:shadow-cyan-500/20 transition-shadow duration-300">
+                                <div key={image.src} className={`group relative rounded-lg overflow-hidden shadow-lg hover:shadow-cyan-500/20 transition-shadow duration-300 ${isPending ? 'opacity-50 pointer-events-none' : ''}`}>
+                                     {(isPending || isFailed) && (
+                                        <div className="absolute inset-0 bg-white/50 dark:bg-black/50 flex items-center justify-center rounded-lg z-10">
+                                            {isPending && <SparklesIcon className="w-8 h-8 animate-spin text-cyan-500" />}
+                                            {isFailed && <CloseIcon className="w-8 h-8 text-red-500" />}
+                                        </div>
+                                    )}
                                     <img src={image.src} className="w-full h-full object-cover aspect-square" />
                                     <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
                                     <div className="absolute bottom-0 left-0 p-4 w-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 translate-y-4 group-hover:translate-y-0">
@@ -1279,7 +1401,7 @@ const App: React.FC = () => {
                                     </div>
                                     <div className="absolute top-2 right-2 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 -translate-x-4 group-hover:translate-x-0">
                                         <Tooltip content={t('deleteImage')}><button onClick={() => handleDeleteImage(historyItem.id, image.id)} className="p-2 bg-black/50 rounded-full text-white hover:bg-red-500 backdrop-blur-sm transition-colors"><TrashIcon className="w-4 h-4" /></button></Tooltip>
-                                        <Tooltip content={t('tooltipUnfavorite')}><button onClick={() => handleFavoriteToggle(historyItem.id, image.id, image.isFavorite)} className={`p-2 bg-black/50 rounded-full hover:bg-yellow-500 ${image.isFavorite ? 'text-yellow-400' : 'text-white'} backdrop-blur-sm transition-colors`}><StarIcon className="w-4 h-4" filled={true} /></button></Tooltip>
+                                        <Tooltip content={t('tooltipUnfavorite')}><button onClick={() => handleFavoriteToggle(historyItem.id, image.id, image.isFavorite)} className={`p-2 bg-black/50 rounded-full hover:bg-yellow-500 ${image.isFavorite ? 'text-yellow-400' : 'text-white'} backdrop-blur-sm transition-colors`}><StarIcon className="w-4 h-4" filled={image.isFavorite} /></button></Tooltip>
                                     </div>
                                 </div>
                             )
@@ -1381,10 +1503,18 @@ const App: React.FC = () => {
                             const fullImage = { ...image, prompt: historyItem.prompt, negativePrompt: historyItem.negativePrompt, settings: historyItem.settings };
                             const isInGallery = gallery.some(g => g.imageId === image.id);
                             const processingMessage = processingImages.get(image.src);
+                            const isPending = image.status === 'pending';
+                            const isFailed = image.status === 'failed';
         
                             return (
-                            <div key={`${image.id}-${index}`} className="rounded-lg overflow-hidden bg-white dark:bg-black/20 shadow-lg relative group">
+                            <div key={`${image.id}-${index}`} className={`rounded-lg overflow-hidden bg-white dark:bg-black/20 shadow-lg relative group ${isPending ? 'opacity-50 pointer-events-none' : ''}`}>
                                 {processingMessage && <div className="absolute inset-0 bg-black/80 backdrop-blur-sm flex flex-col justify-center items-center z-20"><div className="w-12 h-12 border-4 border-dashed rounded-full animate-spin border-cyan-400"></div><p className="text-white mt-3 font-semibold">{processingMessage}</p></div>}
+                                {(isPending || isFailed) && (
+                                    <div className="absolute inset-0 bg-white/50 dark:bg-black/50 flex items-center justify-center rounded-lg z-10">
+                                        {isPending && <SparklesIcon className="w-8 h-8 animate-spin text-cyan-500" />}
+                                        {isFailed && <CloseIcon className="w-8 h-8 text-red-500" />}
+                                    </div>
+                                )}
                                 <img src={image.src} alt={`Generated image ${index + 1}`} className="w-full h-full object-contain" style={{ filter: FILTERS[activeFilters[index] || 'none'] }}/>
                                 <div className="absolute top-2 right-2 text-xs bg-black/40 text-white dark:text-gray-200 rounded-full px-2 py-0.5 backdrop-blur-sm">
                                     {image.generationTime ? `${(image.generationTime / 1000).toFixed(1)}s` : '...'}
@@ -1400,6 +1530,7 @@ const App: React.FC = () => {
                                     <Tooltip content={image.isFavorite ? t('tooltipUnfavorite') : t('tooltipFavorite')}><button onClick={() => handleFavoriteToggle(historyId, image.id, image.isFavorite || false)} className={`p-2 rounded-full hover:bg-white/20 transition-colors transform active:scale-90 ${image.isFavorite ? 'text-yellow-400' : 'text-gray-200'}`}><StarIcon className="w-4 h-4" filled={image.isFavorite} /></button></Tooltip>
                                     <Tooltip content={isInGallery ? t('tooltipRemoveFromGallery') : t('tooltipSaveToGallery')}><button onClick={() => handleSaveToGallery(fullImage as GeneratedImage, historyId)} className={`p-2 rounded-full hover:bg-white/20 transition-colors ${isInGallery ? 'text-cyan-400' : 'text-gray-200'}`}><BookmarkSquareIcon className="w-4 h-4" /></button></Tooltip>
                                     <FilterDropdown onSelect={(filter) => setActiveFilters(p => ({...p, [index]: filter}))} t={t} />
+                                    <Tooltip content={t('materialEditorButton')}><button onClick={() => alert("Material Editor will be implemented in a future update.")} className="text-gray-200 p-2 rounded-full hover:bg-white/20 transition-colors"><CubeIcon className="w-4 h-4"/></button></Tooltip>
                                     <div className="w-px h-5 bg-gray-600 mx-1"></div>
                                     <Tooltip content={t('tooltipAddObject')}><button onClick={() => {setEditingImage({src: image.src, index: index, id: image.id}); setShowAddObjectSketch(true);}} className="text-gray-200 p-2 rounded-full hover:bg-white/20 transition-colors"><BrushIcon className="w-4 h-4"/></button></Tooltip>
                                     <Tooltip content={t('tooltipAddPerson')}><button onClick={() => {setEditingImage({src: image.src, index: index, id: image.id}); setShowAddPerson(true);}} className="text-gray-200 p-2 rounded-full hover:bg-white/20 transition-colors"><UserPlusIcon className="w-4 h-4"/></button></Tooltip>
@@ -1438,8 +1569,46 @@ const App: React.FC = () => {
                         {activeLab === 'core' && (<>
                             <Accordion title={t('promptLabel')} defaultOpen>
                                 <div className="space-y-4">
-                                <div className="flex flex-col"><div className="flex justify-between items-center mb-2"><label htmlFor="prompt" className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('promptLabel')}</label><button onClick={handleRefinePrompt} disabled={isRefining || !prompt} className="text-xs bg-cyan-500/80 dark:bg-cyan-600/50 text-white font-semibold py-1 px-2 rounded-md flex items-center gap-1 hover:bg-cyan-600/80 disabled:bg-gray-500 dark:disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors">{isRefining ? t('refining') : <><RefineIcon className="w-4 h-4"/> {t('aiRefine')}</>}</button></div>
-                                <div className="relative"><textarea id="prompt" value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder={t('promptPlaceholder')} className="w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg p-3 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-cyan-500 placeholder:text-gray-500 font-mono text-xs" rows={6}/><button onClick={handleToggleListening} className={`absolute bottom-2 right-2 p-2 rounded-full transition-colors ${isListening ? 'bg-red-500 animate-pulse' : 'bg-gray-600 dark:bg-gray-700 hover:bg-gray-500 dark:hover:bg-gray-600'}`} title={t('voicePromptTitle')}><MicrophoneIcon className="w-4 h-4 text-white"/></button></div></div>
+                                <div className="flex flex-col"><div className="flex justify-between items-center mb-2"><label htmlFor="prompt" className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('promptLabel')}</label>
+                                <div className="flex items-center gap-2">
+                                  <button onClick={handleAnalyzePrompt} disabled={isAnalyzingPrompt || !prompt} className="text-xs bg-yellow-500/80 dark:bg-yellow-600/50 text-white font-semibold py-1 px-2 rounded-md flex items-center gap-1 hover:bg-yellow-600/80 disabled:bg-gray-500 dark:disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors">{isAnalyzingPrompt ? t('analyzing') : <><BeakerIcon className="w-4 h-4" /> {t('analyzePrompt')}</>}</button>
+                                  <button onClick={handleRefinePrompt} disabled={isRefining || !prompt} className="text-xs bg-cyan-500/80 dark:bg-cyan-600/50 text-white font-semibold py-1 px-2 rounded-md flex items-center gap-1 hover:bg-cyan-600/80 disabled:bg-gray-500 dark:disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors">{isRefining ? t('refining') : <><RefineIcon className="w-4 h-4"/> {t('aiRefine')}</>}</button>
+                                </div>
+                                </div>
+                                <div className="relative"><textarea id="prompt" value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder={t('promptPlaceholder')} className="w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg p-3 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-cyan-500 placeholder:text-gray-500 font-mono text-xs" rows={6}/><button onClick={handleToggleListening} className={`absolute bottom-2 right-2 p-2 rounded-full transition-colors ${isListening ? 'bg-red-500 animate-pulse' : 'bg-gray-600 dark:bg-gray-700 hover:bg-gray-500 dark:hover:bg-gray-600'}`} title={t('voicePromptTitle')}><MicrophoneIcon className="w-4 h-4 text-white"/></button></div>
+                                {promptAnalysis && (
+                                    <div className="mt-2 p-3 border rounded-lg dark:border-gray-700 bg-gray-100 dark:bg-gray-800/50 shadow-inner text-xs">
+                                        <p className="font-semibold">{t('promptScore')}: 
+                                            <span className={`ml-2 ${promptAnalysis.score > 0.8 ? 'text-green-500' : promptAnalysis.score > 0.5 ? 'text-yellow-500' : 'text-red-500'}`}>
+                                                {(promptAnalysis.score * 100).toFixed(0)}/100
+                                            </span>
+                                        </p>
+                                        
+                                        {promptAnalysis.conflictDetected && (
+                                            <div className="text-red-500 text-xs mt-2 p-2 bg-red-500/10 rounded-md">
+                                                <p className="font-bold">{t('conflictDetected')}!</p>
+                                                <p>{promptAnalysis.conflictReason}</p>
+                                            </div>
+                                        )}
+                                        
+                                        <div className="mt-3">
+                                            <p className="text-xs font-medium text-gray-600 dark:text-gray-300">{t('suggestions')} (Click to add):</p>
+                                            <div className="flex flex-wrap gap-1.5 mt-1">
+                                                {promptAnalysis.suggestions.map(s => (
+                                                    <span key={s} className="px-2 py-0.5 text-xs bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 rounded-full cursor-pointer hover:bg-cyan-500/20" onClick={() => setPrompt(p => `${p}, ${s}`)}>{s}</span>
+                                                ))}
+                                            </div>
+                                            
+                                            <p className="text-xs font-medium mt-3 text-gray-600 dark:text-gray-300">{t('negativeSuggestions')} (Click to add):</p>
+                                            <div className="flex flex-wrap gap-1.5 mt-1">
+                                                {promptAnalysis.negativeSuggestions.map(s => (
+                                                    <span key={s} className="px-2 py-0.5 text-xs bg-red-500/10 text-red-700 dark:text-red-300 rounded-full cursor-pointer hover:bg-red-500/20" onClick={() => setNegativePrompt(p => `${p}, ${s}`)}>{s}</span>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                                </div>
                                 <div><label htmlFor="negativePrompt" className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">{t('negativePromptLabel')}</label><textarea id="negativePrompt" value={negativePrompt} onChange={(e) => setNegativePrompt(e.target.value)} placeholder={t('negativePromptPlaceholder')} className="w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg p-3 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-cyan-500 placeholder:text-gray-500 font-mono text-xs" rows={2}/></div>
                                 </div>
                             </Accordion>
@@ -1508,7 +1677,9 @@ const App: React.FC = () => {
                                 <div className="space-y-3">
                                     <div><label htmlFor="simulatedForce" className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">{t('simulateForceLabel')}: <span className="font-semibold text-gray-800 dark:text-gray-200">{simulatedForce}</span></label><input type="range" min="0" max="10" step="1" value={simulatedForce} onChange={e => setSimulatedForce(parseInt(e.target.value))} className="w-full h-1.5 bg-gray-300 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer range-sm accent-cyan-500 mt-1"/></div>
                                     <div><label htmlFor="cameraSensor" className="block text-xs text-gray-500 dark:text-gray-400 mb-1">{t('cameraSensorLabel')}</label><select id="cameraSensor" value={cameraSensor} onChange={e => setCameraSensor(e.target.value)} className="w-full bg-white dark:bg-gray-700/50 border border-gray-300 dark:border-gray-600 text-xs rounded-lg p-2 text-gray-800 dark:text-gray-200"><option>Default</option><option>Fuji X-Trans</option><option>Sony IMX</option><option>Kodak Portra 400</option><option>Ilford HP5 Plus</option></select></div>
-                                    <button onClick={() => alert("Material Editor (PBR) is a future feature.")} className="w-full text-xs bg-gray-200 dark:bg-gray-800/50 p-2 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-300 transition-colors">{t('materialEditorButton')}</button>
+                                    <Tooltip content={generatedImages.length > 0 ? t('selectMaterialEditorOnImage') : t('generateImageFirst')}>
+                                        <button disabled className="w-full text-xs bg-gray-200 dark:bg-gray-800/50 p-2 rounded-lg text-gray-500 dark:text-gray-500 transition-colors cursor-not-allowed">{t('materialEditorButton')}</button>
+                                    </Tooltip>
                                 </div>
                             </Accordion>
                             <Accordion title={t('experimentationLabTitle')}>
@@ -1649,8 +1820,6 @@ const GalleryDetailModal: React.FC<{
     }, [history, image]);
     
     if (!historyInfo) {
-        // This can happen briefly if history is cleared while modal is open.
-        // Or if data is somehow inconsistent.
         return null; 
     }
 
@@ -1660,6 +1829,9 @@ const GalleryDetailModal: React.FC<{
         isFavorite: isFavorite,
     };
 
+    const isPending = image.status === 'pending';
+    const isFailed = image.status === 'failed';
+
     return (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-[60] flex justify-center items-center p-4" onClick={onClose}>
             <div className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg shadow-xl w-full max-w-5xl max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
@@ -1668,8 +1840,14 @@ const GalleryDetailModal: React.FC<{
                     <button onClick={onClose} className="text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white"><CloseIcon className="w-6 h-6" /></button>
                 </div>
                 <div className="p-6 flex-1 flex flex-col md:flex-row gap-6 overflow-y-auto">
-                    <div className="flex-1 md:flex-[2] relative bg-gray-100 dark:bg-black/20 rounded-lg">
+                    <div className={`flex-1 md:flex-[2] relative bg-gray-100 dark:bg-black/20 rounded-lg ${isPending ? 'opacity-50 pointer-events-none' : ''}`}>
                         {isProcessingMessage && <div className="absolute inset-0 bg-black/80 backdrop-blur-sm flex flex-col justify-center items-center z-20 rounded-lg"><div className="w-12 h-12 border-4 border-dashed rounded-full animate-spin border-cyan-400"></div><p className="text-white mt-3 font-semibold">{isProcessingMessage}</p></div>}
+                        {(isPending || isFailed) && (
+                            <div className="absolute inset-0 bg-white/50 dark:bg-black/50 flex items-center justify-center rounded-lg z-10">
+                                {isPending && <SparklesIcon className="w-8 h-8 animate-spin text-cyan-500" />}
+                                {isFailed && <CloseIcon className="w-8 h-8 text-red-500" />}
+                            </div>
+                        )}
                         <img src={image.src} alt={image.prompt} className="w-full h-full object-contain rounded-lg" />
                     </div>
                     <div className="flex-1 md:flex-[1] flex flex-col">

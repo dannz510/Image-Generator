@@ -27,12 +27,18 @@ export const translations = {
   voicePromptTitle: { en: 'Voice-to-Prompt', vi: 'Chuyển giọng nói thành Prompt' },
   negativePromptLabel: { en: 'Negative Prompt', vi: 'Prompt phủ định' },
   negativePromptPlaceholder: { en: 'e.g., bad anatomy, blurry, text', vi: 'ví dụ: giải phẫu xấu, mờ, văn bản' },
-  seriesGeneratorTitle: { en: 'Series Generator', vi: 'Tạo Chuỗi ảnh' },
+  
+  // PVS (replaces series generator)
+  seriesGeneratorTitle: { en: 'Series Generator (PVS)', vi: 'Trình tạo Hàng loạt (PVS)' },
   seriesBasePromptLabel: { en: 'Base Prompt', vi: 'Prompt Cơ sở' },
-  seriesBasePromptPlaceholder: { en: 'e.g., A character standing in a field.', vi: 'ví dụ: Một nhân vật đứng trên cánh đồng.' },
+  seriesBasePromptPlaceholder: { en: 'e.g., photo of a cat', vi: 'ví dụ: ảnh một con mèo' },
   seriesChangesLabel: { en: 'Sequential Changes (one per line)', vi: 'Thay đổi Tuần tự (mỗi dòng một thay đổi)' },
-  seriesChangesPlaceholder: { en: 'e.g., The character smiles.', vi: 'ví dụ: Nhân vật mỉm cười.' },
-  generateSeriesButton: { en: 'Generate Series', vi: 'Tạo Chuỗi' },
+  seriesChangesPlaceholder: { en: 'e.g., wearing a hat\nnow it is smiling', vi: 'ví dụ: đang đội mũ\nbây giờ nó đang cười' },
+  generateSeriesButton: { en: 'Generate Series', vi: 'Tạo Hàng loạt' },
+  enableSeriesMode: { en: 'Enable Prompt Variable System (PVS)', vi: 'Kích hoạt Hệ thống Biến Prompt (PVS)' },
+  variablePromptInput: { en: 'PVS Prompt', vi: 'Prompt Biến' },
+  variablePromptPlaceholder: { en: 'Example: "a {subject: cat, dog} on a {color: red, blue} bike"', vi: 'Ví dụ: "một {subject: mèo, chó} trên xe đạp {color: đỏ, xanh}"' },
+  variablePromptHint: { en: 'Define variables in the format {key: value1, value2} to generate combinations.', vi: 'Định nghĩa biến theo cú pháp {key: giá trị1, giá trị2} để tạo các tổ hợp.' },
 
   // Structure Lab
   faceCharacterRefTitle: { en: 'Face & Character Reference', vi: 'Tham chiếu Gương mặt & Nhân vật' },
@@ -42,10 +48,38 @@ export const translations = {
   faceLockIntensityLabel: { en: 'Face Lock Intensity', vi: 'Cường độ Khóa Gương mặt' },
   preserveGlassesLabel: { en: 'Preserve Glasses & Hair Only', vi: 'Chỉ giữ lại Kính & Tóc' },
   poseEnvControlTitle: { en: 'Pose & Environment Control', vi: 'Kiểm soát Dáng & Môi trường' },
-  uploadPoseButton: { en: 'Upload Pose', vi: 'Tải lên Dáng' },
+  uploadPoseButton: { en: 'Upload Pose', vi: 'Tải Dáng lên' },
   sketchPoseButton: { en: 'Sketch Pose', vi: 'Phác thảo Dáng' },
-  controlNetTypeLabel: { en: 'ControlNet Type', vi: 'Loại ControlNet' },
-  useGeoLocationButton: { en: 'Use Geo-Location Context', vi: 'Dùng Bối cảnh Địa lý' },
+  controlNetTypeLabel: { en: 'Control Type', vi: 'Loại Kiểm soát' },
+  useGeoLocationButton: { en: 'Use Geo-Location', vi: 'Sử dụng Vị trí Địa lý' },
+  
+  // Seed Locking
+  seedLabel: { en: 'Seed (Initialization Code)', vi: 'Seed (Mã khởi tạo)' },
+  seedPlaceholder: { en: 'Random if empty', vi: 'Ngẫu nhiên nếu để trống' },
+  unlockSeed: { en: 'Unlock Seed', vi: 'Mở khóa Seed' },
+  lockSeed: { en: 'Lock Seed', vi: 'Khóa Seed' },
+  seedLockedTip: { en: 'Seed is locked, results will be consistent.', vi: 'Seed đã khóa, kết quả sẽ nhất quán.' },
+  seedUnlockedTip: { en: 'Seed is random for each generation.', vi: 'Seed tự động ngẫu nhiên cho mỗi lần tạo.' },
+
+  // Style Cloning
+  styleCloningTitle: { en: 'AI Style Cloning (New!)', vi: 'Sao chép Phong cách AI (Mới!)' },
+  uploadAndAnalyzeStyle: { en: 'Upload Image to Analyze Style', vi: 'Tải ảnh lên để Phân tích Phong cách' },
+  analyzing: { en: 'Analyzing...', vi: 'Đang phân tích...' },
+  stylePromptGenerated: { en: 'Style Prompt Generated', vi: 'Prompt Phong cách đã sinh ra' },
+  noStylePromptYet: { en: 'Upload an image to extract its style details.', vi: 'Tải một ảnh lên để trích xuất chi tiết phong cách.' },
+  removeStyleReference: { en: 'Remove Style Reference', vi: 'Xóa Ảnh Mẫu' },
+  styleAnalysisError: { en: 'Failed to analyze style. The image might be too complex or API returned an error.', vi: 'Phân tích phong cách thất bại. Ảnh có thể quá phức tạp hoặc API gặp lỗi.' },
+  
+  // Structure Cloning (ControlNet)
+  structureCloningTitle: { en: 'Structure Cloning (Composition Control)', vi: 'Sao chép Cấu trúc (Kiểm soát Bố cục)' },
+  uploadStructureRef: { en: 'Upload Reference Image for Structure/Pose', vi: 'Tải ảnh Tham chiếu để Lấy Cấu trúc/Dáng' },
+  controlMode: { en: 'Control Mode', vi: 'Chế độ Điều khiển' },
+  modeNone: { en: 'None (Ignore Reference)', vi: 'Không (Bỏ qua Tham chiếu)' },
+  modeCanny: { en: 'Canny Edges (Line Art/Borders)', vi: 'Canny Edges (Nét vẽ/Đường viền)' },
+  modeDepth: { en: 'Depth Map (3D Composition)', vi: 'Depth Map (Cấu trúc 3D)' },
+  modePose: { en: 'Pose Estimation (Human/Object Pose)', vi: 'Pose Estimation (Ước tính Dáng người/Vật thể)' },
+  removeStructureRef: { en: 'Remove Structure Reference', vi: 'Xóa Ảnh Tham chiếu Cấu trúc' },
+  uploadError: { en: 'Failed to upload image.', vi: 'Tải ảnh lên thất bại.' },
 
   // Advanced Lab
   technicalControlsTitle: { en: 'Technical & Stylistic Controls', vi: 'Kiểm soát Kỹ thuật & Phong cách' },
@@ -56,7 +90,9 @@ export const translations = {
   simulationTitle: { en: 'Physics & Camera Simulation', vi: 'Mô phỏng Vật lý & Máy ảnh' },
   simulateForceLabel: { en: 'Simulate Wind/Force', vi: 'Mô phỏng Gió/Lực' },
   cameraSensorLabel: { en: 'Camera Sensor / Film Stock', vi: 'Cảm biến Máy ảnh / Film' },
-  materialEditorButton: { en: 'Material Editor (Future)', vi: 'Trình chỉnh sửa Vật liệu (Tương lai)' },
+  materialEditorButton: { en: 'Material Editor (PBR)', vi: 'Trình chỉnh sửa Vật liệu (PBR)' },
+  generateImageFirst: { en: 'Generate an image first.', vi: 'Tạo một ảnh trước.'},
+  selectMaterialEditorOnImage: { en: 'Select the Material Editor icon on a generated image.', vi: 'Chọn biểu tượng Trình chỉnh sửa Vật liệu trên một ảnh đã tạo.'},
   experimentationLabTitle: { en: 'AI Experimentation Lab', vi: 'Phòng Thí nghiệm AI' },
   experimentationLabDescription: { en: 'Advanced tools for AI Engineers', vi: 'Công cụ nâng cao cho Kỹ sư AI' },
   abTestingButton: { en: 'A/B Testing (Future)', vi: 'Thử nghiệm A/B (Tương lai)' },
@@ -83,16 +119,18 @@ export const translations = {
   generatingVision: { en: 'Generating your vision...', vi: 'Đang tạo tầm nhìn của bạn...' },
   pleaseWait: { en: 'This can take a few moments. Please wait.', vi: 'Quá trình này có thể mất vài phút. Vui lòng đợi.' },
   processingImage: { en: 'Processing image...', vi: 'Đang xử lý ảnh...' },
-  processingUpscale: { en: 'Upscaling...', vi: 'Đang nâng cấp...' },
-  processingRemix: { en: 'Remixing...', vi: 'Đang remix...' },
-  processingFix: { en: 'Applying fix...', vi: 'Đang sửa lỗi...' },
+  processingUpscale: { en: 'Super Resolving...', vi: 'Đang Siêu Phân giải...' },
+  processingRemix: { en: 'Inpainting/Remixing...', vi: 'Đang sửa/Remix ảnh...' },
+  processingFix: { en: 'Fixing Imperfections...', vi: 'Đang sửa lỗi ảnh...' },
+  processingCrop: { en: 'Applying Crop...', vi: 'Đang áp dụng Cắt ảnh...' },
+
 
   // Image Actions & Tooltips
   filter: { en: 'Filter', vi: 'Bộ lọc' },
   tooltipNarrative: { en: 'Generate Narrative', vi: 'Tạo Tường thuật' },
   tooltipPrint: { en: 'Print-Ready Export', vi: 'Xuất file In ấn' },
   tooltipCrop: { en: 'Crop Image', vi: 'Cắt ảnh' },
-  tooltipUpscale: { en: 'Upscale', vi: 'Nâng cấp' },
+  tooltipUpscale: { en: 'AI Super Resolution', vi: 'Siêu Phân giải AI' },
   tooltipDownload: { en: 'Download Image', vi: 'Tải ảnh xuống' },
   tooltipFavorite: { en: 'Favorite', vi: 'Yêu thích' },
   tooltipUnfavorite: { en: 'Unfavorite', vi: 'Bỏ yêu thích' },
@@ -108,8 +146,8 @@ export const translations = {
   // Modals
   cropImageTitle: { en: 'Crop Image', vi: 'Cắt ảnh' },
   cancelButton: { en: 'Cancel', vi: 'Hủy' },
-  applyCropButton: { en: 'Apply Crop', vi: 'Áp dụng Cắt' },
-  applyButton: { en: 'Apply', vi: 'Áp dụng' },
+  applyCropButton: { en: 'Apply Crop', vi: 'Áp dụng Cắt ảnh' },
+  applyButton: { en: 'Apply Edits', vi: 'Áp dụng Chỉnh sửa' },
   resetButton: { en: 'Reset', vi: 'Đặt lại' },
   sketchPoseTitle: { en: 'Sketch Pose / Structure', vi: 'Phác thảo Dáng / Cấu trúc' },
   useSketchButton: { en: 'Use Sketch', vi: 'Dùng Bản phác thảo' },
@@ -133,7 +171,7 @@ export const translations = {
   addObjectSketchTitle: { en: 'Add Object via Sketch', vi: 'Thêm Vật thể qua Phác thảo' },
   addObjectSketchDescription: { en: 'Draw the shape of the object you want to add, then describe it below.', vi: 'Vẽ hình dạng của vật thể bạn muốn thêm, sau đó mô tả nó ở bên dưới.' },
   addObjectSketchPlaceholder: { en: 'e.g., a glowing red sphere', vi: 'ví dụ: một quả cầu màu đỏ phát sáng' },
-  addButton: { en: 'Add', vi: 'Thêm' },
+  addButton: { en: 'Add Object', vi: 'Thêm Vật thể' },
   addPersonTitle: { en: 'Add Person/Animal from Image', vi: 'Thêm Người/Vật từ Ảnh' },
   addPersonDescription: { en: 'Upload an image of a person or animal to add to your scene.', vi: 'Tải lên hình ảnh của người hoặc động vật để thêm vào cảnh của bạn.' },
   originalImage: { en: 'Original Image', vi: 'Ảnh Gốc' },
@@ -159,6 +197,30 @@ export const translations = {
   fixImperfectionsTitle: { en: 'Fix Imperfections (Inpainting)', vi: 'Sửa lỗi (Inpainting)' },
   fixImperfectionsDescription: { en: 'Describe how to fix or change a part of the image. Be specific.', vi: 'Mô tả cách sửa chữa hoặc thay đổi một phần của hình ảnh. Hãy cụ thể.' },
   fixPlaceholder: { en: 'e.g., remove the car in the background', vi: 'ví dụ: xóa chiếc xe hơi ở hậu cảnh' },
+
+  // AI Super Resolution Modal
+  upscaleTitle: { en: 'AI Super Resolution', vi: 'Siêu Phân giải AI' },
+  upscaleRefinePrompt: { en: 'AI Super Resolution Refinement Prompt (Adds Detail)', vi: 'Prompt Tinh chỉnh Siêu Phân giải AI (Tăng chi tiết)' },
+  upscaleRefinePlaceholder: { en: 'e.g., Sharpened details, 8K, cinematic texture, intricate patterns on the face.', vi: 'Ví dụ: Chi tiết sắc nét, 8K, kết cấu điện ảnh, các hoa văn phức tạp trên mặt.' },
+  upscaleRefineTip: { en: 'Describe new details the AI should add during upscaling for sharpness.', vi: 'Mô tả chi tiết mới mà AI nên thêm vào trong quá trình tăng độ phân giải để ảnh sắc nét hơn.' },
+  upscaling: { en: 'AI Super Resolving 4X...', vi: 'Đang Siêu Phân giải 4X...' },
+
+  // Material Editor
+  materialEditorTitle: { en: 'Seamless Texture & Material Generator', vi: 'Trình tạo Texture & Vật liệu Liền mạch' },
+  cropSourceTexture: { en: '1. Crop Source Area', vi: '1. Cắt Vùng Nguồn' },
+  generateSeamlessTexture: { en: '2. Generate Seamless Texture', vi: '2. Tạo Texture Liền mạch' },
+  generatedAssetTexture: { en: 'Albedo / Color Map', vi: 'Bản đồ Albedo / Màu sắc' },
+  generateMaterialMaps: { en: '3. Generate PBR Maps', vi: '3. Tạo Bản đồ PBR' },
+  generateNormalMap: { en: 'Generate Normal Map', vi: 'Tạo Normal Map' },
+  generateDisplacementMap: { en: 'Generate Displacement Map', vi: 'Tạo Displacement Map' },
+  normalMap: { en: 'Normal Map', vi: 'Normal Map' },
+  displacementMap: { en: 'Displacement/Height Map', vi: 'Displacement/Height Map' },
+  downloadAlbedo: { en: 'Download Color', vi: 'Tải xuống Màu' },
+  downloadNormal: { en: 'Download Normal', vi: 'Tải xuống Normal' },
+  downloadDisplacement: { en: 'Download Displacement', vi: 'Tải xuống Displacement' },
+  generatingTexture: { en: 'Generating seamless texture...', vi: 'Đang tạo texture liền mạch...' },
+  generatingNormal: { en: 'Generating normal map...', vi: 'Đang tạo normal map...' },
+  generatingDisplacement: { en: 'Generating displacement map...', vi: 'Đang tạo displacement map...' },
   
   // Gallery & Favorites
   galleryTitle: { en: 'Gallery', vi: 'Thư viện' },
@@ -187,7 +249,7 @@ export const translations = {
   // About & Onboarding
   aboutTitle: { en: 'About & Help', vi: 'Giới thiệu & Trợ giúp' },
   aboutDescription: { en: 'Your guide to the Meta-Creative Studio.', vi: 'Hướng dẫn của bạn về Meta-Creative Studio.' },
-  aboutWelcome: { en: 'Welcome to Meta-Creative Studio', vi: 'Chào mừng đến với Meta-Creative Studio' },
+  aboutWelcome: { en: 'Welcome to', vi: 'Chào mừng đến với' },
   aboutIntro: { en: 'This application is your cognitive creative partner, designed to bring your most complex visions to life using the power of Google\'s Gemini AI. Here\'s a quick guide to some of the key features:', vi: 'Ứng dụng này là đối tác sáng tạo nhận thức của bạn, được thiết kế để biến những tầm nhìn phức tạp nhất của bạn thành hiện thực bằng sức mạnh của Gemini AI của Google. Dưới đây là hướng dẫn nhanh về một số tính năng chính:' },
   aboutCoreLab: { en: 'Core Lab', vi: 'Lab Cốt lõi' },
   aboutCoreLabDesc: { en: 'This is your primary workspace. Enter your main prompt, add negative prompts to exclude unwanted elements, and use the powerful **AI Refine** button to let Gemini enhance your ideas into professional-grade prompts. You can also use your voice to dictate prompts.', vi: 'Đây là không gian làm việc chính của bạn. Nhập prompt chính, thêm prompt phủ định để loại trừ các yếu tố không mong muốn, và sử dụng nút **AI Tinh chỉnh** mạnh mẽ để Gemini nâng cao ý tưởng của bạn thành các prompt chuyên nghiệp. Bạn cũng có thể dùng giọng nói để đọc prompt.' },
@@ -222,10 +284,24 @@ export const translations = {
   crtToken: { en: 'Token', vi: 'Token' },
   crtWeight: { en: 'Weight', vi: 'Trọng số' },
   crtStep: { en: 'Influence at Step', vi: 'Ảnh hưởng ở Bước' },
+  crtPixelLocation: { en: 'Analyzed Location', vi: 'Vị trí Phân tích' },
+
+  // Prompt Analysis & Scoring
+  analyzePrompt: { en: 'Analyze', vi: 'Phân tích' },
+  promptAnalysisError: { en: 'Prompt analysis failed. Try simplifying the request.', vi: 'Phân tích Prompt thất bại. Hãy thử đơn giản hóa yêu cầu.' },
+  promptScore: { en: 'Prompt Score', vi: 'Điểm Prompt' },
+  conflictDetected: { en: 'Conflict Detected', vi: 'Phát hiện Xung đột' },
+  suggestions: { en: 'Refinement Suggestions', vi: 'Gợi ý Tinh chỉnh' },
+  negativeSuggestions: { en: 'Negative Keywords', vi: 'Từ khóa Phủ định' },
+
+  // Real-time Sync & Optimistic UI
+  syncFailedRollback: { en: 'Synchronization failed, operation rolled back. Check network connection.', vi: 'Đồng bộ hóa thất bại, hành động đã được hoàn tác. Vui lòng kiểm tra kết nối mạng.' },
+  deleteSyncFailedRollback: { en: 'Delete failed, item restored to history.', vi: 'Xóa thất bại, mục đã được khôi phục về lịch sử.' },
   
   // Other
   deleteConfirmation: { en: 'Are you sure you want to delete this image?', vi: 'Bạn có chắc chắn muốn xóa hình ảnh này không?' },
   storageQuotaError: { en: 'Storage quota exceeded. To prevent this, history is limited to 20 entries and the gallery to 25 images. Please clear items from your Gallery or History if this persists.', vi: 'Đã vượt quá hạn ngạch lưu trữ. Để ngăn chặn điều này, lịch sử được giới hạn trong 20 mục và thư viện trong 25 ảnh. Vui lòng xóa bớt các mục khỏi Thư viện hoặc Lịch sử nếu sự cố vẫn tiếp diễn.' },
   storageGenericError: { en: 'An unexpected error occurred while saving your data. Please try again.', vi: 'Đã xảy ra lỗi không mong muốn khi lưu dữ liệu của bạn. Vui lòng thử lại.' },
   error: { en: 'Error', vi: 'Lỗi' },
+  colorProfileWarning: { en: 'Filter edits may result in sRGB color profile. Use Advanced Export for P3/AdobeRGB.', vi: 'Chỉnh sửa bộ lọc có thể dẫn đến cấu hình màu sRGB. Hãy dùng Xuất nâng cao để có P3/AdobeRGB.' },
 };
