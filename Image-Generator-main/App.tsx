@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import ReactCrop, { type Crop, type PixelCrop, centerCrop, makeAspectCrop } from 'react-image-crop';
 import { generateImageWithPromptAndImages, upscaleImage, refinePrompt, generateNarrative } from './services/geminiService';
@@ -7,7 +8,7 @@ import {
     RemixIcon, ExpandIcon, FixIcon, LockClosedIcon, QueueListIcon, CpuChipIcon, Squares2X2Icon, PrinterIcon, FolderIcon, TagIcon, 
     FolderPlusIcon, SearchIcon, MicrophoneIcon, PencilSquareIcon, BeakerIcon, GlobeAltIcon, BookOpenIcon, AdjustmentsHorizontalIcon, 
     ArrowsRightLeftIcon, CameraIcon, SparklesIcon, LanguageIcon, SunIcon, MoonIcon, BrushIcon, UserPlusIcon,
-    HomeIcon, CogIcon, QuestionMarkCircleIcon, StarIcon, TrashIcon, CodeBracketSquareIcon, ArrowLeftIcon, ClipboardIcon
+    HomeIcon, CogIcon, QuestionMarkCircleIcon, StarIcon, TrashIcon, CodeBracketSquareIcon, ArrowLeftIcon, ClipboardIcon, BookmarkSquareIcon
 } from './components/icons';
 import { fileToBase64 } from './utils/fileUtils';
 
@@ -21,7 +22,7 @@ if (recognition) {
 }
 
 type Locale = 'en' | 'vi';
-type ActiveView = 'generator' | 'gallery' | 'settings' | 'about';
+type ActiveView = 'generator' | 'gallery' | 'favorites' | 'settings' | 'about';
 
 // Utility function to get cropped image data URL
 function getCroppedImg(
@@ -100,6 +101,97 @@ const CropperModal: React.FC<{ imageSrc: string; onClose: () => void; onCrop: (c
                 <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center"><h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">{t('cropImageTitle')}</h2><button onClick={onClose} className="text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white"><CloseIcon className="w-6 h-6" /></button></div>
                 <div className="p-6 flex-1 overflow-y-auto flex justify-center items-center bg-gray-100 dark:bg-gray-900/50"><ReactCrop crop={crop} onChange={c => setCrop(c)} onComplete={c => setCompletedCrop(c)}><img ref={imgRef} src={imageSrc} onLoad={onImageLoad} style={{ maxHeight: '60vh' }} alt="Crop preview" /></ReactCrop></div>
                 <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-end items-center gap-4 bg-gray-50 dark:bg-gray-800/50 rounded-b-lg"><button onClick={onClose} className="bg-gray-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-gray-600 transition-colors">{t('cancelButton')}</button><button onClick={handleApplyCrop} className="bg-cyan-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-cyan-700 transition-colors">{t('applyCropButton')}</button></div>
+            </div>
+        </div>
+    );
+};
+
+const AdvancedEditModal: React.FC<{
+    imageSrc: string;
+    onClose: () => void;
+    onSave: (editedUrl: string) => void;
+    t: (key: keyof typeof translations) => string;
+}> = ({ imageSrc, onClose, onSave, t }) => {
+    const [brightness, setBrightness] = useState(100);
+    const [contrast, setContrast] = useState(100);
+    const [saturation, setSaturation] = useState(100);
+    const imageRef = useRef<HTMLImageElement>(null);
+    const canvasRef = useRef<HTMLCanvasElement>(null);
+
+    const applyFilters = useCallback(() => {
+        const canvas = canvasRef.current;
+        const image = imageRef.current;
+        if (canvas && image) {
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+                canvas.width = image.naturalWidth;
+                canvas.height = image.naturalHeight;
+                ctx.filter = `brightness(${brightness}%) contrast(${contrast}%) saturate(${saturation}%)`;
+                ctx.drawImage(image, 0, 0);
+            }
+        }
+    }, [brightness, contrast, saturation]);
+
+    useEffect(() => {
+        const image = new Image();
+        image.crossOrigin = "anonymous";
+        image.src = imageSrc;
+        image.onload = () => {
+            imageRef.current = image;
+            applyFilters();
+        };
+    }, [imageSrc, applyFilters]);
+
+    useEffect(() => {
+        applyFilters();
+    }, [applyFilters]);
+
+    const handleSave = () => {
+        const canvas = canvasRef.current;
+        if (canvas) {
+            onSave(canvas.toDataURL('image/jpeg', 0.95));
+        }
+    };
+    
+    const handleReset = () => {
+        setBrightness(100);
+        setContrast(100);
+        setSaturation(100);
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex justify-center items-center p-4">
+            <div className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg shadow-xl w-full max-w-5xl max-h-[90vh] flex flex-col md:flex-row">
+                <div className="flex-[3] p-4 flex justify-center items-center bg-gray-100 dark:bg-black/20 rounded-t-lg md:rounded-l-lg md:rounded-t-none">
+                    <canvas ref={canvasRef} className="max-w-full max-h-[80vh] object-contain" />
+                </div>
+                <div className="flex-[1] p-6 flex flex-col">
+                    <div className="flex justify-between items-center mb-4">
+                        <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">{t('advancedEditTitle')}</h2>
+                        <button onClick={onClose} className="text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white"><CloseIcon className="w-6 h-6" /></button>
+                    </div>
+                    <div className="space-y-4 flex-1 overflow-y-auto pr-2 -mr-2">
+                        <div>
+                            <label className="text-sm font-medium text-gray-700 dark:text-gray-300 flex justify-between"><span>{t('brightness')}</span><span>{brightness}%</span></label>
+                            <input type="range" min="0" max="200" value={brightness} onChange={e => setBrightness(Number(e.target.value))} className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-cyan-500" />
+                        </div>
+                        <div>
+                            <label className="text-sm font-medium text-gray-700 dark:text-gray-300 flex justify-between"><span>{t('contrast')}</span><span>{contrast}%</span></label>
+                            <input type="range" min="0" max="200" value={contrast} onChange={e => setContrast(Number(e.target.value))} className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-cyan-500" />
+                        </div>
+                        <div>
+                            <label className="text-sm font-medium text-gray-700 dark:text-gray-300 flex justify-between"><span>{t('saturation')}</span><span>{saturation}%</span></label>
+                            <input type="range" min="0" max="200" value={saturation} onChange={e => setSaturation(Number(e.target.value))} className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-cyan-500" />
+                        </div>
+                    </div>
+                    <div className="mt-auto pt-4 flex flex-col gap-2">
+                        <button onClick={handleReset} className="w-full bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 font-bold py-2 px-4 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors">{t('resetButton')}</button>
+                        <div className="flex gap-2">
+                            <button onClick={onClose} className="flex-1 bg-gray-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-gray-600 transition-colors">{t('cancelButton')}</button>
+                            <button onClick={handleSave} className="flex-1 bg-cyan-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-cyan-700 transition-colors">{t('applyButton')}</button>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     );
@@ -356,7 +448,8 @@ Image 1 (portrait): Character holds a transparent umbrella, looking back at the 
 Image 2 (full body): Character with umbrella, alone in a vast snowy field, looking up to catch snowflakes. Shot from above. Distant bare trees. Conveys smallness and isolation.
 Image 3 (close-up): Zoomed-in on the character's sorrowful, yearning eyes.`;
 interface UploadedImage { file: File; base64: string; }
-interface GeneratedImage { src: string; isUpscaling: boolean; tags: string[]; generationTime?: number; isFavorite?: boolean; prompt: string; negativePrompt: string; settings: any;}
+interface GeneratedImage { id: string; src: string; tags: string[]; generationTime?: number; isFavorite?: boolean; prompt: string; negativePrompt: string; settings: any;}
+interface GalleryImage { id: string; src: string; prompt: string; negativePrompt: string; settings: any; generationTime?: number; historyId: string; imageId: string; }
 interface HistoryItem { id: string; prompt: string; negativePrompt: string; uploadedImages: UploadedImage[]; generatedImages: (Omit<GeneratedImage, 'prompt' | 'negativePrompt' | 'settings'>)[]; settings: any; tags: string[]; folderId?: string; }
 interface Folder { id: string; name: string; }
 interface StyleProfile {
@@ -374,6 +467,8 @@ interface StyleProfile {
   controlNetType: 'OpenPose' | 'Depth Map' | 'Canny Edge';
   simulatedForce: number;
 }
+const HISTORY_LIMIT = 20;
+const GALLERY_LIMIT = 25;
 
 
 const Placeholder: React.FC<{ isLoading?: boolean, seriesProgress?: {current: number, total: number}, t: (key: keyof typeof translations) => string; }> = ({ isLoading = false, seriesProgress, t }) => (
@@ -587,7 +682,7 @@ const App: React.FC = () => {
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [folders, setFolders] = useState<Folder[]>([]);
   const [showHistory, setShowHistory] = useState<boolean>(false);
-  const [croppingImage, setCroppingImage] = useState<{ src: string; index: number } | null>(null);
+  const [croppingImage, setCroppingImage] = useState<{ src: string; index: number, historyId: string, imageId: string } | null>(null);
   const [printExportImage, setPrintExportImage] = useState<string | null>(null);
   const [activeLab, setActiveLab] = useState('core');
 
@@ -595,14 +690,24 @@ const App: React.FC = () => {
   const [userId, setUserId] = useState<string | null>(null);
   const [locale, setLocale] = useState<Locale>('en');
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
-  const [editingImage, setEditingImage] = useState<{src: string, index: number} | null>(null);
+  const [editingImage, setEditingImage] = useState<{src: string, index: number, id: string} | null>(null);
+  const [advancedEditingImage, setAdvancedEditingImage] = useState<{src: string, index: number, historyId: string, imageId: string} | null>(null);
   const [showAddObjectSketch, setShowAddObjectSketch] = useState(false);
   const [showAddPerson, setShowAddPerson] = useState(false);
   const [activeView, setActiveView] = useState<ActiveView>('generator');
+  const [copied, setCopied] = useState(false);
   
   const [remixingImage, setRemixingImage] = useState<(Omit<GeneratedImage, 'prompt'|'negativePrompt'|'settings'> & { index: number }) | null>(null);
   const [expandingImage, setExpandingImage] = useState<(Omit<GeneratedImage, 'prompt'|'negativePrompt'|'settings'> & { index: number }) | null>(null);
   const [fixingImage, setFixingImage] = useState<(Omit<GeneratedImage, 'prompt'|'negativePrompt'|'settings'> & { index: number }) | null>(null);
+
+  // Gallery State
+  const [gallery, setGallery] = useState<GalleryImage[]>([]);
+  const [viewingGalleryImage, setViewingGalleryImage] = useState<GalleryImage | null>(null);
+  
+  // Granular Processing State
+  const [processingImages, setProcessingImages] = useState<Map<string, string>>(new Map());
+
 
   // Responsive state
   const [isControlsOpen, setIsControlsOpen] = useState(false);
@@ -662,50 +767,47 @@ const App: React.FC = () => {
   const controlNetInputRef = useRef<HTMLInputElement>(null);
   const fineTuneInputRef = useRef<HTMLInputElement>(null);
   
-  const updateUserData = useCallback((key: string, data: any) => {
-      if (!userId) return;
-      localStorage.setItem(`dannz-${key}-${userId}`, JSON.stringify(data));
-  }, [userId]);
+  const updateUserData = useCallback((key: string, data: any): boolean => {
+      if (!userId) return false;
+      try {
+        localStorage.setItem(`dannz-${key}-${userId}`, JSON.stringify(data));
+        return true;
+      } catch (e) {
+        if (e instanceof DOMException && (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED')) {
+            console.error(`LocalStorage quota exceeded while saving key: ${key}`);
+            setError(t('storageQuotaError'));
+        } else {
+            console.error(`Failed to save to localStorage for key: ${key}`, e);
+            setError(t('storageGenericError'));
+        }
+        return false;
+      }
+  }, [userId, t]);
 
   const updateHistory = useCallback((newHistory: HistoryItem[]) => {
-      if (!userId) return;
-      try {
-          updateUserData('generation-history', newHistory);
+      if (updateUserData('generation-history', newHistory)) {
           setHistory(newHistory);
-      } catch (e) {
-          if (e instanceof DOMException && (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED')) {
-              console.warn("LocalStorage quota exceeded. Pruning oldest non-favorited history item.");
-              const historyToPrune = [...newHistory];
-              
-              const oldestNonFavoriteIndex = historyToPrune.findIndex(item => !item.generatedImages.some(img => img.isFavorite));
-
-              if (oldestNonFavoriteIndex !== -1) {
-                  historyToPrune.splice(oldestNonFavoriteIndex, 1);
-                  try {
-                      updateUserData('generation-history', historyToPrune);
-                      setHistory(historyToPrune);
-                      setError(t('storagePrunedNotification'));
-                  } catch (e2) {
-                      setError(t('storageFullError'));
-                  }
-              } else {
-                  setError(t('storageFullFavoritesError'));
-              }
-          } else {
-              console.error("Failed to save history to localStorage", e);
-          }
       }
-  }, [userId, t, updateUserData]);
+  }, [updateUserData]);
   
   const updateFolders = useCallback((newFolders: Folder[]) => {
-      setFolders(newFolders);
-      updateUserData('project-folders', newFolders);
+      if (updateUserData('project-folders', newFolders)) {
+        setFolders(newFolders);
+      }
   }, [updateUserData]);
 
   const updateStyleProfiles = useCallback((newProfiles: StyleProfile[]) => {
-      setStyleProfiles(newProfiles);
-      updateUserData('style-profiles', newProfiles);
+      if(updateUserData('style-profiles', newProfiles)) {
+        setStyleProfiles(newProfiles);
+      }
   }, [updateUserData]);
+
+  const updateGallery = useCallback((newGallery: GalleryImage[]) => {
+      if(updateUserData('gallery-collection', newGallery)) {
+        setGallery(newGallery);
+      }
+  }, [updateUserData]);
+
 
   useEffect(() => {
     let id = localStorage.getItem('dannz-user-id');
@@ -739,15 +841,13 @@ const App: React.FC = () => {
                     if (globalData) {
                         data = globalData;
                         localStorage.setItem(userKey, JSON.stringify(data));
-                        // Optional: localStorage.removeItem(globalKey);
                     }
                 } catch (e) {
                     console.error(`Failed to parse global data for key ${globalKey}`, e);
                 }
             }
         }
-        // This is the fix: correctly identify keys that should default to an array.
-        const isArrayKey = key.includes('history') || key.includes('profiles') || key.includes('folders');
+        const isArrayKey = key.includes('history') || key.includes('profiles') || key.includes('folders') || key.includes('gallery');
         return data || (isArrayKey ? [] : {});
     };
 
@@ -756,20 +856,22 @@ const App: React.FC = () => {
         if (Array.isArray(savedProfiles)) setStyleProfiles(savedProfiles);
         
         const savedHistory: HistoryItem[] = migrateAndLoad('generation-history');
-        // This guard prevents the app from crashing if savedHistory is not an array.
         if (Array.isArray(savedHistory)) {
             const migratedHistory = savedHistory.map((item: any) => {
-                // Ensure generatedImages is an array before trying to access its elements
-                if (item.generatedImages && Array.isArray(item.generatedImages) && item.generatedImages.length > 0 && typeof item.generatedImages[0] === 'string') {
-                    return { ...item, generatedImages: item.generatedImages.map((src: string) => ({ src, isUpscaling: false, tags: [], isFavorite: false })) };
-                }
-                return item;
+                 const generatedWithIds = item.generatedImages.map((img: any) => ({
+                    id: img.id || crypto.randomUUID(), // Assign new ID if missing
+                    ...img,
+                }));
+                return { ...item, generatedImages: generatedWithIds };
             });
             setHistory(migratedHistory);
         }
 
         const savedFolders = migrateAndLoad('project-folders');
         if(Array.isArray(savedFolders)) setFolders(savedFolders);
+
+        const savedGallery = migrateAndLoad('gallery-collection');
+        if(Array.isArray(savedGallery)) setGallery(savedGallery);
         
         const savedTheme = localStorage.getItem('dannz-theme');
         if (savedTheme === 'light' || savedTheme === 'dark') setTheme(savedTheme);
@@ -848,33 +950,90 @@ const App: React.FC = () => {
     img.src = base64Image;
   };
 
-  const handleFavoriteToggle = (historyItemId: string, imageIndex: number) => {
-    const newHistory = history.map(item => {
-        if (item.id === historyItemId) {
-            const newGeneratedImages = item.generatedImages.map((img, idx) => {
-                if (idx === imageIndex) {
-                    return { ...img, isFavorite: !img.isFavorite };
-                }
-                return img;
-            });
-            return { ...item, generatedImages: newGeneratedImages };
+    const updateImageInStates = useCallback((historyId: string, imageId: string, updates: Partial<GeneratedImage>) => {
+        const newHistory = history.map(item => {
+            if (item.id === historyId) {
+                const newGeneratedImages = item.generatedImages.map(img =>
+                    img.id === imageId ? { ...img, ...updates } : img
+                );
+                return { ...item, generatedImages: newGeneratedImages };
+            }
+            return item;
+        });
+        updateHistory(newHistory);
+    
+        const findImageInNewHistory = (imageIdToFind: string) => {
+            for (const item of newHistory) {
+                const found = item.generatedImages.find(img => img.id === imageIdToFind);
+                if (found) return found;
+            }
+            return null;
         }
-        return item;
-    });
-    updateHistory(newHistory);
+
+        setGeneratedImages(prev => prev.map(img => img.id === imageId ? { ...img, ...updates } : img));
+        updateGallery(gallery.map(item => {
+            if (item.imageId === imageId) {
+                const updatedImage = findImageInNewHistory(imageId);
+                return updatedImage ? { ...item, ...updates, src: updatedImage.src } : item;
+            }
+            return item;
+        }));
+
+        if (viewingGalleryImage?.imageId === imageId) {
+            const updatedImage = findImageInNewHistory(imageId);
+             if (updatedImage) {
+                setViewingGalleryImage(prev => prev ? { ...prev, ...updates, src: updatedImage.src } : null);
+             }
+        }
+
+    }, [history, updateHistory, updateGallery, viewingGalleryImage, gallery]);
+
+
+  const handleFavoriteToggle = (historyItemId: string, imageId: string, isFavorite: boolean) => {
+    updateImageInStates(historyItemId, imageId, { isFavorite: !isFavorite });
   };
   
-  const handleDeleteImage = (historyItemId: string, imageIndex: number) => {
+  const handleDeleteImage = (historyItemId: string, imageId: string) => {
       if (!window.confirm(t('deleteConfirmation'))) return;
+
+      const imageToRemove = history.find(h => h.id === historyItemId)?.generatedImages.find(img => img.id === imageId);
+      if (!imageToRemove) return;
+
       const newHistory = history.map(item => {
           if (item.id === historyItemId) {
-              const newGeneratedImages = item.generatedImages.filter((_, idx) => idx !== imageIndex);
+              const newGeneratedImages = item.generatedImages.filter(img => img.id !== imageId);
               if (newGeneratedImages.length === 0) return null; // Mark for deletion
               return { ...item, generatedImages: newGeneratedImages };
           }
           return item;
       }).filter(Boolean) as HistoryItem[];
       updateHistory(newHistory);
+      
+      updateGallery(gallery.filter(g => g.imageId !== imageId));
+      setGeneratedImages(generatedImages.filter(g => g.id !== imageId));
+      if (viewingGalleryImage?.imageId === imageId) {
+          setViewingGalleryImage(null);
+      }
+  };
+
+  const handleSaveToGallery = (imageToSave: GeneratedImage, historyId: string) => {
+      const isInGallery = gallery.some(item => item.imageId === imageToSave.id);
+
+      if (isInGallery) {
+          updateGallery(gallery.filter(item => item.imageId !== imageToSave.id));
+      } else {
+          const newGalleryItem: GalleryImage = {
+              id: `gallery-${Date.now()}`,
+              src: imageToSave.src,
+              prompt: imageToSave.prompt,
+              negativePrompt: imageToSave.negativePrompt,
+              settings: imageToSave.settings,
+              generationTime: imageToSave.generationTime,
+              historyId: historyId,
+              imageId: imageToSave.id
+          };
+          updateGallery([...gallery, newGalleryItem].slice(-GALLERY_LIMIT));
+      }
   };
   
   const buildFullPrompt = (promptOverride?: string) => {
@@ -898,8 +1057,20 @@ const App: React.FC = () => {
     if(negativePrompt) fullPrompt += `\n\n--- Negative Prompt ---\nAvoid the following: ${negativePrompt}`;
     return fullPrompt;
   }
+  
+  const setImageProcessing = (src: string, action: string | null) => {
+    setProcessingImages(prev => {
+        const next = new Map(prev);
+        if (action) {
+            next.set(src, action);
+        } else {
+            next.delete(src);
+        }
+        return next;
+    });
+  };
 
-  const handleSubmit = useCallback(async (isSeries = false, editingOptions?: {baseImage: Omit<GeneratedImage, 'prompt'|'negativePrompt'|'settings'> & { historyId: string, index: number }, newImages?: UploadedImage[], editPrompt: string}) => {
+  const handleSubmit = useCallback(async (isSeries = false, editingOptions?: {baseImage: Omit<GeneratedImage, 'prompt'|'negativePrompt'|'settings'> & { historyId: string, index: number }, newImages?: UploadedImage[], editPrompt: string, processingMessage?: string}) => {
     const isSeriesRun = isSeries && seriesBasePrompt && seriesChanges.trim();
     const changes = isSeriesRun ? seriesChanges.trim().split('\n').filter(line => line.trim() !== '') : [];
     
@@ -909,8 +1080,14 @@ const App: React.FC = () => {
     }
     if (!isSeriesRun && !editingOptions && !prompt) { setError('Please provide a prompt.'); return; }
     
-    setIsLoading(true); setError(null); 
-    if(!editingOptions) {
+    setError(null); 
+
+    const oldSrc = editingOptions?.baseImage.src;
+    const imageId = editingOptions?.baseImage.id;
+    if (oldSrc) {
+        setImageProcessing(oldSrc, editingOptions.processingMessage || t('processingImage'));
+    } else {
+        setIsLoading(true);
         setGeneratedImages([]);
         setActiveFilters({});
     }
@@ -935,19 +1112,11 @@ const App: React.FC = () => {
         const results = await generateImageWithPromptAndImages(fullPromptForStep, imageParts);
         const generationTime = Math.round((Date.now() - startTime) / runCount);
         
-        if (editingOptions) {
-            const newHistory = history.map(item => {
-                if (item.id === editingOptions.baseImage.historyId) {
-                    const newGenerated = [...item.generatedImages];
-                    newGenerated[editingOptions.baseImage.index] = { ...newGenerated[editingOptions.baseImage.index], src: results[0], generationTime };
-                    return { ...item, generatedImages: newGenerated };
-                }
-                return item;
-            });
-            updateHistory(newHistory);
-            setGeneratedImages(prev => prev.map((img) => img.src === editingOptions.baseImage.src ? { ...img, src: results[0], generationTime } : img));
+        if (editingOptions && oldSrc && imageId) {
+            const newSrc = results[0];
+            updateImageInStates(editingOptions.baseImage.historyId, imageId, { src: newSrc, generationTime });
         } else {
-            combinedResults.push(...results.map(src => ({ src, isUpscaling: false, tags: [], isFavorite: false, generationTime })));
+            combinedResults.push(...results.map(src => ({ id: crypto.randomUUID(), src, tags: [], isFavorite: false, generationTime })));
         }
       }
       
@@ -962,13 +1131,14 @@ const App: React.FC = () => {
               settings: currentSettings, 
               tags: isSeriesRun ? ['series'] : [] 
           };
-          updateHistory([...history, newHistoryItem]);
+          updateHistory([...history, newHistoryItem].slice(-HISTORY_LIMIT));
       }
 
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err);
       setError(isSeriesRun ? `Error on step ${seriesProgress?.current || 1}: ${errorMessage}` : errorMessage);
     } finally {
+      if (oldSrc) setImageProcessing(oldSrc, null);
       setIsLoading(false);
       setSeriesProgress(null);
       setEditingImage(null);
@@ -977,28 +1147,22 @@ const App: React.FC = () => {
       setRemixingImage(null);
       setExpandingImage(null);
       setFixingImage(null);
-      setIsControlsOpen(false); // Close panel after generation on mobile
+      setIsControlsOpen(false);
     }
-  }, [prompt, negativePrompt, uploadedImages, controlNetImage, aspectRatio, faceLockIntensity, preserveGlasses, controlNetType, baseModel, characterIds, consistencyLock, stylisticBudget, simulatedForce, cameraSensor, history, seriesBasePrompt, seriesChanges, locale, updateHistory, t]);
+  }, [prompt, negativePrompt, uploadedImages, controlNetImage, aspectRatio, faceLockIntensity, preserveGlasses, controlNetType, baseModel, characterIds, consistencyLock, stylisticBudget, simulatedForce, cameraSensor, history, gallery, seriesBasePrompt, seriesChanges, locale, updateHistory, updateGallery, viewingGalleryImage, t, updateImageInStates]);
 
-  const handleUpscale = async (imageSrc: string, index: number, historyId: string) => {
-    setGeneratedImages(prev => prev.map((img, i) => img.src === imageSrc ? { ...img, isUpscaling: true } : img));
+  const handleUpscale = async (imageSrc: string, imageId: string, historyId: string) => {
+    setImageProcessing(imageSrc, t('processingUpscale'));
     try {
         const [upscaledImage] = await upscaleImage(imageSrc);
-        const newHistory = history.map(item => {
-            if(item.id === historyId){
-                const newGenerated = item.generatedImages.map((img, idx) => idx === index ? { ...img, src: upscaledImage } : img);
-                return {...item, generatedImages: newGenerated};
-            }
-            return item;
-        });
-        updateHistory(newHistory);
-        setGeneratedImages(prev => prev.map((img) => img.src === imageSrc ? { ...img, src: upscaledImage, isUpscaling: false } : img));
+        updateImageInStates(historyId, imageId, { src: upscaledImage });
     } catch (err) {
         setError("Failed to upscale image. Please try again.");
-        setGeneratedImages(prev => prev.map((img) => img.src === imageSrc ? { ...img, isUpscaling: false } : img));
+    } finally {
+        setImageProcessing(imageSrc, null);
     }
   }
+
 
   const handleRefinePrompt = async () => {
       if (!prompt) return; setIsRefining(true); setError(null);
@@ -1007,22 +1171,10 @@ const App: React.FC = () => {
       finally { setIsRefining(false); }
   };
   
-  const handleCropComplete = (croppedImageSrc: string) => {
-    if (croppingImage) {
-        const historyId = history.find(h => h.generatedImages.some(gi => gi.src === croppingImage.src))?.id;
-        if (!historyId) return;
-        
-        const newHistory = history.map(item => {
-            if (item.id === historyId) {
-                const newGenerated = item.generatedImages.map((img, idx) => idx === croppingImage.index ? { ...img, src: croppedImageSrc } : img);
-                return {...item, generatedImages: newGenerated};
-            }
-            return item;
-        });
-        updateHistory(newHistory);
-        setGeneratedImages(prev => prev.map((img, i) => img.src === croppingImage.src ? { ...img, src: croppedImageSrc } : img));
-        setCroppingImage(null);
-    }
+  const handleEditComplete = (newSrc: string, originalImage: { src: string; historyId: string; imageId: string; index: number; }) => {
+    updateImageInStates(originalImage.historyId, originalImage.imageId, { src: newSrc });
+    setCroppingImage(null);
+    setAdvancedEditingImage(null);
   };
   
   const handleSaveProfile = () => {
@@ -1071,9 +1223,16 @@ const App: React.FC = () => {
     </Tooltip>
   );
 
-  const findImageHistoryId = (imageSrc: string) => {
-      return history.find(h => h.generatedImages.some(gi => gi.src === imageSrc))?.id;
+  const findImageHistoryInfo = (imageId: string): { historyId: string, index: number, image: GeneratedImage } | null => {
+    for (const historyItem of history) {
+        const index = historyItem.generatedImages.findIndex(gi => gi.id === imageId);
+        if (index !== -1) {
+            return { historyId: historyItem.id, index, image: historyItem.generatedImages[index] as GeneratedImage };
+        }
+    }
+    return null;
   }
+
 
   const allFavoritedImages = useMemo(() => {
     return history
@@ -1088,6 +1247,27 @@ const App: React.FC = () => {
         case 'gallery': return (
             <main className={`flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto ${animationClass}`}>
                 <header className="mb-6"><h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('galleryTitle')}</h1><p className="text-sm text-gray-500 dark:text-gray-400">{t('galleryDescription')}</p></header>
+                {gallery.length > 0 ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                        {[...gallery].reverse().map((image) => (
+                            <div key={image.id} onClick={() => setViewingGalleryImage(image)} className="group relative rounded-lg overflow-hidden shadow-lg hover:shadow-cyan-500/20 transition-shadow duration-300 cursor-pointer">
+                                <img src={image.src} className="w-full h-full object-cover aspect-square" />
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                    <div className="flex flex-col items-center justify-center h-full text-center text-gray-500">
+                        <ImageIcon className="w-24 h-24 text-gray-300 dark:text-gray-700" />
+                        <h2 className="mt-4 text-xl font-semibold text-gray-700 dark:text-gray-300">{t('noGalleryItems')}</h2>
+                        <p>{t('noGalleryItemsDescription')}</p>
+                    </div>
+                )}
+            </main>
+        );
+        case 'favorites': return (
+            <main className={`flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto ${animationClass}`}>
+                <header className="mb-6"><h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('favoritesTitle')}</h1><p className="text-sm text-gray-500 dark:text-gray-400">{t('favoritesDescription')}</p></header>
                 {allFavoritedImages.length > 0 ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                         {allFavoritedImages.map((image) => {
@@ -1105,8 +1285,8 @@ const App: React.FC = () => {
                                         <p className="text-white text-xs font-mono">{formattedDate} - {formattedTime}</p>
                                     </div>
                                     <div className="absolute top-2 right-2 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 -translate-x-4 group-hover:translate-x-0">
-                                        <Tooltip content={t('deleteConfirmation')}><button onClick={() => handleDeleteImage(historyItem.id, image.index)} className="p-2 bg-black/50 rounded-full text-white hover:bg-red-500 backdrop-blur-sm transition-colors"><TrashIcon className="w-4 h-4" /></button></Tooltip>
-                                        <Tooltip content={t('tooltipUnfavorite')}><button onClick={() => handleFavoriteToggle(historyItem.id, image.index)} className={`p-2 bg-black/50 rounded-full hover:bg-yellow-500 ${image.isFavorite ? 'text-yellow-400' : 'text-white'} backdrop-blur-sm transition-colors`}><StarIcon className="w-4 h-4" filled={true} /></button></Tooltip>
+                                        <Tooltip content={t('deleteImage')}><button onClick={() => handleDeleteImage(historyItem.id, image.id)} className="p-2 bg-black/50 rounded-full text-white hover:bg-red-500 backdrop-blur-sm transition-colors"><TrashIcon className="w-4 h-4" /></button></Tooltip>
+                                        <Tooltip content={t('tooltipUnfavorite')}><button onClick={() => handleFavoriteToggle(historyItem.id, image.id, image.isFavorite)} className={`p-2 bg-black/50 rounded-full hover:bg-yellow-500 ${image.isFavorite ? 'text-yellow-400' : 'text-white'} backdrop-blur-sm transition-colors`}><StarIcon className="w-4 h-4" filled={true} /></button></Tooltip>
                                     </div>
                                 </div>
                             )
@@ -1122,7 +1302,6 @@ const App: React.FC = () => {
             </main>
         );
         case 'settings':
-            const [copied, setCopied] = useState(false);
             const handleCopy = () => {
                 if(userId) {
                     navigator.clipboard.writeText(userId);
@@ -1200,14 +1379,19 @@ const App: React.FC = () => {
                     {isLoading ? <Placeholder isLoading={true} seriesProgress={seriesProgress} t={t} /> : generatedImages.length > 0 ? (
                     <div className="grid gap-4 sm:gap-6 w-full max-w-7xl grid-cols-1">
                         {generatedImages.map((image, index) => {
-                            const historyItem = history.find(h => h.generatedImages.some(gi => gi.src === image.src));
+                            const historyInfo = findImageHistoryInfo(image.id);
+                            if (!historyInfo) return null;
+                            const { historyId } = historyInfo;
+                            const historyItem = history.find(h => h.id === historyId);
                             if (!historyItem) return null;
-                            const imageHistoryIndex = historyItem.generatedImages.findIndex(gi => gi.src === image.src);
+
                             const fullImage = { ...image, prompt: historyItem.prompt, negativePrompt: historyItem.negativePrompt, settings: historyItem.settings };
+                            const isInGallery = gallery.some(g => g.imageId === image.id);
+                            const processingMessage = processingImages.get(image.src);
         
                             return (
-                            <div key={`${image.src}-${index}`} className="rounded-lg overflow-hidden bg-white dark:bg-black/20 shadow-lg relative group">
-                                {image.isUpscaling && <div className="absolute inset-0 bg-black/80 backdrop-blur-sm flex flex-col justify-center items-center z-20"><div className="w-12 h-12 border-4 border-dashed rounded-full animate-spin border-cyan-400"></div><p className="text-white mt-3 font-semibold">{t('upscaling')}</p></div>}
+                            <div key={`${image.id}-${index}`} className="rounded-lg overflow-hidden bg-white dark:bg-black/20 shadow-lg relative group">
+                                {processingMessage && <div className="absolute inset-0 bg-black/80 backdrop-blur-sm flex flex-col justify-center items-center z-20"><div className="w-12 h-12 border-4 border-dashed rounded-full animate-spin border-cyan-400"></div><p className="text-white mt-3 font-semibold">{processingMessage}</p></div>}
                                 <img src={image.src} alt={`Generated image ${index + 1}`} className="w-full h-full object-contain" style={{ filter: FILTERS[activeFilters[index] || 'none'] }}/>
                                 <div className="absolute top-2 right-2 text-xs bg-black/40 text-white dark:text-gray-200 rounded-full px-2 py-0.5 backdrop-blur-sm">
                                     {image.generationTime ? `${(image.generationTime / 1000).toFixed(1)}s` : '...'}
@@ -1215,19 +1399,21 @@ const App: React.FC = () => {
                                 <div className="absolute top-3 right-3 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300 -translate-x-4 group-hover:translate-x-0">
                                     <Tooltip content={t('tooltipNarrative')}><button onClick={() => setShowNarrative(true)} className="bg-black/50 backdrop-blur-sm text-white p-2.5 rounded-full hover:bg-cyan-500 transition-colors"><BookOpenIcon className="w-5 h-5"/></button></Tooltip>
                                     <Tooltip content={t('tooltipPrint')}><button onClick={() => setPrintExportImage(image.src)} className="bg-black/50 backdrop-blur-sm text-white p-2.5 rounded-full hover:bg-cyan-500 transition-colors"><PrinterIcon className="w-5 h-5"/></button></Tooltip>
-                                    <Tooltip content={t('tooltipCrop')}><button onClick={() => setCroppingImage({ src: image.src, index: imageHistoryIndex })} className="bg-black/50 backdrop-blur-sm text-white p-2.5 rounded-full hover:bg-cyan-500 transition-colors"><CropIcon className="w-5 h-5"/></button></Tooltip>
-                                    <Tooltip content={t('tooltipUpscale')}><button onClick={() => handleUpscale(image.src, imageHistoryIndex, historyItem.id)} className="bg-black/50 backdrop-blur-sm text-white p-2.5 rounded-full hover:bg-cyan-500 transition-colors"><UpscaleIcon className="w-5 h-5"/></button></Tooltip>
+                                    <Tooltip content={t('tooltipCrop')}><button onClick={() => setCroppingImage({ src: image.src, index, historyId, imageId: image.id })} className="bg-black/50 backdrop-blur-sm text-white p-2.5 rounded-full hover:bg-cyan-500 transition-colors"><CropIcon className="w-5 h-5"/></button></Tooltip>
+                                    <Tooltip content={t('tooltipUpscale')}><button onClick={() => handleUpscale(image.src, image.id, historyId)} className="bg-black/50 backdrop-blur-sm text-white p-2.5 rounded-full hover:bg-cyan-500 transition-colors"><UpscaleIcon className="w-5 h-5"/></button></Tooltip>
                                     <Tooltip content={t('tooltipDownload')}><button onClick={() => handleDownloadImage(image.src, index)} className="bg-black/50 backdrop-blur-sm text-white p-2.5 rounded-full hover:bg-cyan-500 transition-colors"><DownloadIcon className="w-5 h-5"/></button></Tooltip>
                                 </div>
                                 <div className="absolute bottom-3 left-1/2 -translate-x-1/2 w-auto flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-4 group-hover:translate-y-0 bg-gray-900/60 backdrop-blur-sm p-1.5 rounded-full border border-gray-700 shadow-lg">
-                                    <Tooltip content={image.isFavorite ? t('tooltipUnfavorite') : t('tooltipFavorite')}><button onClick={() => handleFavoriteToggle(historyItem.id, imageHistoryIndex)} className={`p-2 rounded-full hover:bg-white/20 transition-colors ${image.isFavorite ? 'text-yellow-400' : 'text-gray-200'}`}><StarIcon className="w-4 h-4" filled={image.isFavorite} /></button></Tooltip>
+                                    <Tooltip content={image.isFavorite ? t('tooltipUnfavorite') : t('tooltipFavorite')}><button onClick={() => handleFavoriteToggle(historyId, image.id, image.isFavorite || false)} className={`p-2 rounded-full hover:bg-white/20 transition-colors transform active:scale-90 ${image.isFavorite ? 'text-yellow-400' : 'text-gray-200'}`}><StarIcon className="w-4 h-4" filled={image.isFavorite} /></button></Tooltip>
+                                    <Tooltip content={isInGallery ? t('tooltipRemoveFromGallery') : t('tooltipSaveToGallery')}><button onClick={() => handleSaveToGallery(fullImage as GeneratedImage, historyId)} className={`p-2 rounded-full hover:bg-white/20 transition-colors ${isInGallery ? 'text-cyan-400' : 'text-gray-200'}`}><BookmarkSquareIcon className="w-4 h-4" /></button></Tooltip>
                                     <FilterDropdown onSelect={(filter) => setActiveFilters(p => ({...p, [index]: filter}))} t={t} />
                                     <div className="w-px h-5 bg-gray-600 mx-1"></div>
-                                    <Tooltip content={t('tooltipAddObject')}><button onClick={() => {setEditingImage({src: image.src, index: imageHistoryIndex}); setShowAddObjectSketch(true);}} className="text-gray-200 p-2 rounded-full hover:bg-white/20 transition-colors"><BrushIcon className="w-4 h-4"/></button></Tooltip>
-                                    <Tooltip content={t('tooltipAddPerson')}><button onClick={() => {setEditingImage({src: image.src, index: imageHistoryIndex}); setShowAddPerson(true);}} className="text-gray-200 p-2 rounded-full hover:bg-white/20 transition-colors"><UserPlusIcon className="w-4 h-4"/></button></Tooltip>
-                                    <Tooltip content={t('tooltipRemix')}><button onClick={() => setRemixingImage({...(fullImage as GeneratedImage), index: imageHistoryIndex})} className="text-gray-200 p-2 rounded-full hover:bg-white/20 transition-colors"><RemixIcon className="w-4 h-4"/></button></Tooltip>
-                                    <Tooltip content={t('tooltipExpand')}><button onClick={() => setExpandingImage({...(fullImage as GeneratedImage), index: imageHistoryIndex})} className="text-gray-200 p-2 rounded-full hover:bg-white/20 transition-colors"><ExpandIcon className="w-4 h-4"/></button></Tooltip>
-                                    <Tooltip content={t('tooltipFix')}><button onClick={() => setFixingImage({...(fullImage as GeneratedImage), index: imageHistoryIndex})} className="text-gray-200 p-2 rounded-full hover:bg-white/20 transition-colors"><FixIcon className="w-4 h-4"/></button></Tooltip>
+                                    <Tooltip content={t('tooltipAddObject')}><button onClick={() => {setEditingImage({src: image.src, index: index, id: image.id}); setShowAddObjectSketch(true);}} className="text-gray-200 p-2 rounded-full hover:bg-white/20 transition-colors"><BrushIcon className="w-4 h-4"/></button></Tooltip>
+                                    <Tooltip content={t('tooltipAddPerson')}><button onClick={() => {setEditingImage({src: image.src, index: index, id: image.id}); setShowAddPerson(true);}} className="text-gray-200 p-2 rounded-full hover:bg-white/20 transition-colors"><UserPlusIcon className="w-4 h-4"/></button></Tooltip>
+                                    <div className="w-px h-5 bg-gray-600 mx-1"></div>
+                                    <Tooltip content={t('advancedEditTitle')}><button onClick={() => setAdvancedEditingImage({src: image.src, index, historyId, imageId: image.id})} className="text-gray-200 p-2 rounded-full hover:bg-white/20 transition-colors"><AdjustmentsHorizontalIcon className="w-4 h-4"/></button></Tooltip>
+                                    <Tooltip content={t('tooltipRemix')}><button onClick={() => setRemixingImage({...(fullImage as GeneratedImage), index: index})} className="text-gray-200 p-2 rounded-full hover:bg-white/20 transition-colors"><RemixIcon className="w-4 h-4"/></button></Tooltip>
+                                    <Tooltip content={t('tooltipFix')}><button onClick={() => setFixingImage({...(fullImage as GeneratedImage), index: index})} className="text-gray-200 p-2 rounded-full hover:bg-white/20 transition-colors"><FixIcon className="w-4 h-4"/></button></Tooltip>
                                 </div>
                             </div>
                             )})}
@@ -1361,26 +1547,43 @@ const App: React.FC = () => {
 
   return (
     <>
-    {croppingImage && <CropperModal imageSrc={croppingImage.src} onClose={() => setCroppingImage(null)} onCrop={handleCropComplete} t={t} />}
+    {croppingImage && <CropperModal imageSrc={croppingImage.src} onClose={() => setCroppingImage(null)} onCrop={(newSrc) => handleEditComplete(newSrc, croppingImage)} t={t} />}
+    {advancedEditingImage && <AdvancedEditModal imageSrc={advancedEditingImage.src} onClose={() => setAdvancedEditingImage(null)} onSave={(newSrc) => handleEditComplete(newSrc, advancedEditingImage)} t={t} />}
     {printExportImage && <PrintExportModal imageSrc={printExportImage} onClose={() => setPrintExportImage(null)} t={t} />}
     {showHistory && <HistoryModal history={history} folders={folders} onUpdateHistory={updateHistory} onUpdateFolders={updateFolders} onClose={() => setShowHistory(false)} t={t}/>}
     {showSketch && <SketchModal onClose={() => setShowSketch(false)} onSave={handleSketchSave} t={t}/>}
     {showNarrative && generatedImages.length > 0 && <NarrativeModal images={generatedImages.map(img => ({...img, prompt: '', negativePrompt: '', settings: {}}))} onClose={() => setShowNarrative(false)} t={t} locale={locale} />}
     
-    {remixingImage && <EditImageModal imageSrc={remixingImage.src} onClose={() => setRemixingImage(null)} onSave={(editPrompt) => { const historyId = findImageHistoryId(remixingImage.src); if(historyId) handleSubmit(false, { baseImage: { ...remixingImage, historyId }, editPrompt }); }} t={t} titleKey="remixImageTitle" descriptionKey="remixImageDescription" placeholderKey="remixPlaceholder" />}
-    {expandingImage && <EditImageModal imageSrc={expandingImage.src} onClose={() => setExpandingImage(null)} onSave={(editPrompt) => { const historyId = findImageHistoryId(expandingImage.src); if(historyId) handleSubmit(false, { baseImage: { ...expandingImage, historyId }, editPrompt }); }} t={t} titleKey="expandCanvasTitle" descriptionKey="expandCanvasDescription" placeholderKey="expandPlaceholder" />}
-    {fixingImage && <EditImageModal imageSrc={fixingImage.src} onClose={() => setFixingImage(null)} onSave={(editPrompt) => { const historyId = findImageHistoryId(fixingImage.src); if(historyId) handleSubmit(false, { baseImage: { ...fixingImage, historyId }, editPrompt }); }} t={t} titleKey="fixImperfectionsTitle" descriptionKey="fixImperfectionsDescription" placeholderKey="fixPlaceholder" />}
+    {remixingImage && <EditImageModal imageSrc={remixingImage.src} onClose={() => setRemixingImage(null)} onSave={(editPrompt) => { const historyInfo = findImageHistoryInfo(remixingImage.id); if(historyInfo) handleSubmit(false, { baseImage: { ...remixingImage, ...historyInfo }, editPrompt, processingMessage: t('processingRemix') }); }} t={t} titleKey="remixImageTitle" descriptionKey="remixImageDescription" placeholderKey="remixPlaceholder" />}
+    {expandingImage && <EditImageModal imageSrc={expandingImage.src} onClose={() => setExpandingImage(null)} onSave={(editPrompt) => { const historyInfo = findImageHistoryInfo(expandingImage.id); if(historyInfo) handleSubmit(false, { baseImage: { ...expandingImage, ...historyInfo }, editPrompt, processingMessage: t('processingImage') }); }} t={t} titleKey="expandCanvasTitle" descriptionKey="expandCanvasDescription" placeholderKey="expandPlaceholder" />}
+    {fixingImage && <EditImageModal imageSrc={fixingImage.src} onClose={() => setFixingImage(null)} onSave={(editPrompt) => { const historyInfo = findImageHistoryInfo(fixingImage.id); if(historyInfo) handleSubmit(false, { baseImage: { ...fixingImage, ...historyInfo }, editPrompt, processingMessage: t('processingFix') }); }} t={t} titleKey="fixImperfectionsTitle" descriptionKey="fixImperfectionsDescription" placeholderKey="fixPlaceholder" />}
     
     {showAddObjectSketch && editingImage && <AddObjectSketchModal imageSrc={editingImage.src} onClose={() => setShowAddObjectSketch(false)} onSave={(mask, objPrompt)=>{
         const editPrompt = locale === 'vi' ? `Trong ảnh gốc, thêm "${objPrompt}" vào khu vực được phác thảo trong ảnh thứ hai.` : `In the original image, add a "${objPrompt}" in the area sketched in the second image.`;
-        const historyId = findImageHistoryId(editingImage.src); if(!historyId) return;
-        handleSubmit(false, { baseImage: { ...(generatedImages.find(g => g.src === editingImage.src)!), index: editingImage.index, historyId }, newImages: [{file: new File([], 'mask.png'), base64: mask}], editPrompt });
+        const historyInfo = findImageHistoryInfo(editingImage.id); if(!historyInfo) return;
+        handleSubmit(false, { baseImage: { ...(generatedImages.find(g => g.id === editingImage.id)!), ...historyInfo }, newImages: [{file: new File([], 'mask.png'), base64: mask}], editPrompt, processingMessage: t('processingRemix') });
     }} t={t} />}
     {showAddPerson && editingImage && <AddPersonModal baseImageSrc={editingImage.src} onClose={() => setShowAddPerson(false)} onSave={(imageToAdd, personPrompt)=>{
         const editPrompt = personPrompt || (locale === 'vi' ? 'Thêm người này vào cảnh một cách tự nhiên.' : 'Add this person into the scene naturally.');
-        const historyId = findImageHistoryId(editingImage.src); if(!historyId) return;
-        handleSubmit(false, { baseImage: { ...(generatedImages.find(g => g.src === editingImage.src)!), index: editingImage.index, historyId }, newImages: [imageToAdd], editPrompt });
+        const historyInfo = findImageHistoryInfo(editingImage.id); if(!historyInfo) return;
+        handleSubmit(false, { baseImage: { ...(generatedImages.find(g => g.id === editingImage.id)!), ...historyInfo }, newImages: [imageToAdd], editPrompt, processingMessage: t('processingRemix') });
     }} t={t} />}
+
+    {viewingGalleryImage && <GalleryDetailModal image={viewingGalleryImage} history={history} onClose={() => setViewingGalleryImage(null)} t={t} 
+        onUpscale={handleUpscale}
+        onCrop={(src, index, historyId, imageId) => setCroppingImage({src, index, historyId, imageId})}
+        onAdvancedEdit={(src, index, historyId, imageId) => setAdvancedEditingImage({src, index, historyId, imageId})}
+        onRemix={(img, index) => setRemixingImage({...img, index})}
+        onFix={(img, index) => setFixingImage({...img, index})}
+        onAddObject={(src, index) => { setEditingImage({src, index, id: viewingGalleryImage.imageId}); setShowAddObjectSketch(true); }}
+        onDownload={handleDownloadImage}
+        onDelete={handleDeleteImage}
+        onFavoriteToggle={handleFavoriteToggle}
+        onSaveToGallery={handleSaveToGallery}
+        isFavorite={history.find(h => h.id === viewingGalleryImage.historyId)?.generatedImages.find(g => g.id === viewingGalleryImage.imageId)?.isFavorite || false}
+        isInGallery={gallery.some(g => g.imageId === viewingGalleryImage.imageId)}
+        isProcessingMessage={processingImages.get(viewingGalleryImage.src)}
+    />}
 
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200 flex font-sans antialiased">
       <nav className="w-20 bg-white dark:bg-black/20 border-r border-gray-200 dark:border-gray-800 flex-col items-center p-4 hidden sm:flex">
@@ -1388,6 +1591,7 @@ const App: React.FC = () => {
           <div className="flex flex-col items-center justify-start space-y-2 flex-grow">
               <NavButton viewName="gallery" title={t('navGallery')}><HomeIcon className="w-6 h-6"/></NavButton>
               <NavButton viewName="generator" title={t('navGenerator')}><Squares2X2Icon className="w-6 h-6" /></NavButton>
+              <NavButton viewName="favorites" title={t('navFavorites')}><StarIcon className="w-6 h-6"/></NavButton>
               <Tooltip content={t('navHistory')}><button onClick={() => setShowHistory(true)} className="p-3 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors duration-200 ease-in-out"><HistoryIcon className="w-6 h-6"/></button></Tooltip>
           </div>
           <div className="flex flex-col items-center justify-end space-y-2">
@@ -1414,13 +1618,93 @@ const App: React.FC = () => {
         <nav className="sm:hidden fixed bottom-0 left-0 right-0 bg-white/80 dark:bg-black/50 backdrop-blur-md border-t border-gray-200 dark:border-gray-700 flex justify-around p-2 z-30">
             <NavButton viewName="gallery" title={t('navGallery')}><HomeIcon className="w-6 h-6"/></NavButton>
             <NavButton viewName="generator" title={t('navGenerator')}><Squares2X2Icon className="w-6 h-6" /></NavButton>
+            <NavButton viewName="favorites" title={t('navFavorites')}><StarIcon className="w-6 h-6" /></NavButton>
             <Tooltip content={t('navHistory')}><button onClick={() => setShowHistory(true)} className="p-3 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors duration-200 ease-in-out"><HistoryIcon className="w-6 h-6"/></button></Tooltip>
             <NavButton viewName="settings" title={t('navSettings')}><CogIcon className="w-6 h-6"/></NavButton>
-            <NavButton viewName="about" title={t('navAbout')}><QuestionMarkCircleIcon className="w-6 h-6"/></NavButton>
         </nav>
     </div>
     </>
   );
+};
+
+const GalleryDetailModal: React.FC<{
+    image: GalleryImage;
+    history: HistoryItem[];
+    onClose: () => void;
+    t: (key: keyof typeof translations) => string;
+    onUpscale: (src: string, imageId: string, historyId: string) => void;
+    onCrop: (src: string, index: number, historyId: string, imageId: string) => void;
+    onAdvancedEdit: (src: string, index: number, historyId: string, imageId: string) => void;
+    onRemix: (image: GeneratedImage, index: number) => void;
+    onFix: (image: GeneratedImage, index: number) => void;
+    onAddObject: (src: string, index: number) => void;
+    onDownload: (src: string, index: number) => void;
+    onDelete: (historyId: string, imageId: string) => void;
+    onFavoriteToggle: (historyId: string, imageId: string, isFavorite: boolean) => void;
+    onSaveToGallery: (image: GeneratedImage, historyId: string) => void;
+    isFavorite: boolean;
+    isInGallery: boolean;
+    isProcessingMessage?: string;
+}> = ({ image, history, onClose, t, onUpscale, onCrop, onAdvancedEdit, onRemix, onFix, onAddObject, onDownload, onDelete, onFavoriteToggle, onSaveToGallery, isFavorite, isInGallery, isProcessingMessage }) => {
+
+    const historyInfo = useMemo(() => {
+        const historyItem = history.find(h => h.id === image.historyId);
+        if (!historyItem) return null;
+        const index = historyItem.generatedImages.findIndex(gi => gi.id === image.imageId);
+        if (index === -1) return null;
+        return { historyItem, index };
+    }, [history, image]);
+    
+    if (!historyInfo) {
+        // This can happen briefly if history is cleared while modal is open.
+        // Or if data is somehow inconsistent.
+        return null; 
+    }
+
+    const fullImage: GeneratedImage = {
+        ...(historyInfo.historyItem.generatedImages[historyInfo.index] as GeneratedImage),
+        ...image,
+        isFavorite: isFavorite,
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-[60] flex justify-center items-center p-4" onClick={onClose}>
+            <div className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg shadow-xl w-full max-w-5xl max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+                <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+                    <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">{t('galleryDetailTitle')}</h2>
+                    <button onClick={onClose} className="text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white"><CloseIcon className="w-6 h-6" /></button>
+                </div>
+                <div className="p-6 flex-1 flex flex-col md:flex-row gap-6 overflow-y-auto">
+                    <div className="flex-1 md:flex-[2] relative bg-gray-100 dark:bg-black/20 rounded-lg">
+                        {isProcessingMessage && <div className="absolute inset-0 bg-black/80 backdrop-blur-sm flex flex-col justify-center items-center z-20 rounded-lg"><div className="w-12 h-12 border-4 border-dashed rounded-full animate-spin border-cyan-400"></div><p className="text-white mt-3 font-semibold">{isProcessingMessage}</p></div>}
+                        <img src={image.src} alt={image.prompt} className="w-full h-full object-contain rounded-lg" />
+                    </div>
+                    <div className="flex-1 md:flex-[1] flex flex-col">
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">{t('details')}</h3>
+                        <div className="text-sm text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-900/50 p-3 rounded-lg border border-gray-200 dark:border-gray-700/50 max-h-48 overflow-y-auto">
+                            <strong className='block mb-1'>{t('promptLabel')}:</strong>
+                            <p className="font-mono text-xs whitespace-pre-wrap">{image.prompt}</p>
+                        </div>
+                        <div className="mt-auto pt-4 space-y-2">
+                            <div className="grid grid-cols-2 gap-2">
+                                <button onClick={() => onUpscale(image.src, image.imageId, image.historyId)} className="w-full flex items-center justify-center gap-2 p-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-md transition-colors text-sm"><UpscaleIcon className="w-4 h-4" /> {t('tooltipUpscale')}</button>
+                                <button onClick={() => onCrop(image.src, historyInfo.index, image.historyId, image.imageId)} className="w-full flex items-center justify-center gap-2 p-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-md transition-colors text-sm"><CropIcon className="w-4 h-4" /> {t('tooltipCrop')}</button>
+                                <button onClick={() => onAdvancedEdit(image.src, historyInfo.index, image.historyId, image.imageId)} className="w-full flex items-center justify-center gap-2 p-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-md transition-colors text-sm"><AdjustmentsHorizontalIcon className="w-4 h-4" /> {t('advancedEditTitle')}</button>
+                                <button onClick={() => onRemix(fullImage, historyInfo.index)} className="w-full flex items-center justify-center gap-2 p-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-md transition-colors text-sm"><RemixIcon className="w-4 h-4" /> {t('tooltipRemix')}</button>
+                                <button onClick={() => onFix(fullImage, historyInfo.index)} className="w-full flex items-center justify-center gap-2 p-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-md transition-colors text-sm"><FixIcon className="w-4 h-4" /> {t('tooltipFix')}</button>
+                                <button onClick={() => onDownload(image.src, historyInfo.index)} className="w-full flex items-center justify-center gap-2 p-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-md transition-colors text-sm"><DownloadIcon className="w-4 h-4" /> {t('tooltipDownload')}</button>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <button onClick={() => onFavoriteToggle(image.historyId, image.imageId, isFavorite)} className={`flex-1 flex items-center justify-center gap-2 p-2 rounded-md transition-colors text-sm ${isFavorite ? 'bg-yellow-400/20 text-yellow-500 hover:bg-yellow-400/30' : 'bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600'}`}><StarIcon className="w-4 h-4" filled={isFavorite}/> {isFavorite ? t('tooltipUnfavorite') : t('tooltipFavorite')}</button>
+                                <button onClick={() => onSaveToGallery(fullImage, image.historyId)} className={`flex-1 flex items-center justify-center gap-2 p-2 rounded-md transition-colors text-sm ${isInGallery ? 'bg-cyan-500/20 text-cyan-500 hover:bg-cyan-500/30' : 'bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600'}`}><BookmarkSquareIcon className="w-4 h-4" /> {isInGallery ? t('tooltipRemoveFromGallery') : t('tooltipSaveToGallery')}</button>
+                            </div>
+                            <button onClick={() => onDelete(image.historyId, image.imageId)} className="w-full flex items-center justify-center gap-2 p-2 bg-red-500/10 text-red-500 hover:bg-red-500/20 rounded-md transition-colors text-sm"><TrashIcon className="w-4 h-4" /> {t('deleteImage')}</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
 };
 
 export default App;

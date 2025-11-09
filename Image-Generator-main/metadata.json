@@ -1,0 +1,8 @@
+{
+  "name": "Dannz Image Generator",
+  "description": "An advanced application to generate high-quality images from text prompts. Features AI-powered prompt refinement, negative prompts, style profiles, in-app filters, and advanced editing tools to bring your creative vision to life.",
+  "requestFramePermissions": [
+    "microphone",
+    "geolocation"
+  ]
+}

@@ -1,3 +1,4 @@
+
 import React from 'react';
 
 export const UploadIcon: React.FC<{ className?: string }> = ({ className }) => (
@@ -285,5 +286,11 @@ export const ArrowLeftIcon: React.FC<{ className?: string }> = ({ className }) =
 export const ClipboardIcon: React.FC<{ className?: string }> = ({ className }) => (
     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v3.042m-7.332 0c-.055.194-.084.4-.084.612v3.042m0 0v1.125c0 .621.504 1.125 1.125 1.125h3.375c.621 0 1.125-.504 1.125-1.125V7.5m-7.332 0h7.332M3.375 10.875h17.25c.621 0 1.125.504 1.125 1.125v6.375c0 .621-.504 1.125-1.125 1.125H3.375c-.621 0-1.125-.504-1.125-1.125v-6.375c0-.621.504-1.125 1.125-1.125z" />
+    </svg>
+);
+
+export const BookmarkSquareIcon: React.FC<{ className?: string }> = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 3.75V16.5L12 14.25L7.5 16.5V3.75m9 0H18A2.25 2.25 0 0120.25 6v12A2.25 2.25 0 0118 20.25H6A2.25 2.25 0 013.75 18V6A2.25 2.25 0 016 3.75h1.5m9 0h-9" />
     </svg>
 );

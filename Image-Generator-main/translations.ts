@@ -1,3 +1,4 @@
+
 export const translations = {
   // App General
   appTitle: { en: 'Meta-Creative Studio', vi: 'Meta-Creative Studio' },
@@ -5,7 +6,8 @@ export const translations = {
 
   // Nav
   navGenerator: { en: 'Generator', vi: 'Trình tạo' },
-  navGallery: { en: 'Gallery', vi: 'Bộ sưu tập' },
+  navGallery: { en: 'Gallery', vi: 'Thư viện' },
+  navFavorites: { en: 'Favorites', vi: 'Yêu thích' },
   navHistory: { en: 'History', vi: 'Lịch sử' },
   navSettings: { en: 'Settings', vi: 'Cài đặt' },
   navAbout: { en: 'About & Help', vi: 'Giới thiệu & Trợ giúp' },
@@ -80,19 +82,24 @@ export const translations = {
   generatingSeries: { en: 'Generating series...', vi: 'Đang tạo chuỗi...' },
   generatingVision: { en: 'Generating your vision...', vi: 'Đang tạo tầm nhìn của bạn...' },
   pleaseWait: { en: 'This can take a few moments. Please wait.', vi: 'Quá trình này có thể mất vài phút. Vui lòng đợi.' },
-  upscaling: { en: 'Upscaling...', vi: 'Đang nâng cấp...' },
+  processingImage: { en: 'Processing image...', vi: 'Đang xử lý ảnh...' },
+  processingUpscale: { en: 'Upscaling...', vi: 'Đang nâng cấp...' },
+  processingRemix: { en: 'Remixing...', vi: 'Đang remix...' },
+  processingFix: { en: 'Applying fix...', vi: 'Đang sửa lỗi...' },
 
   // Image Actions & Tooltips
   filter: { en: 'Filter', vi: 'Bộ lọc' },
   tooltipNarrative: { en: 'Generate Narrative', vi: 'Tạo Tường thuật' },
   tooltipPrint: { en: 'Print-Ready Export', vi: 'Xuất file In ấn' },
   tooltipCrop: { en: 'Crop Image', vi: 'Cắt ảnh' },
-  tooltipUpscale: { en: 'Upscale to 8K', vi: 'Nâng cấp lên 8K' },
+  tooltipUpscale: { en: 'Upscale', vi: 'Nâng cấp' },
   tooltipDownload: { en: 'Download Image', vi: 'Tải ảnh xuống' },
   tooltipFavorite: { en: 'Favorite', vi: 'Yêu thích' },
   tooltipUnfavorite: { en: 'Unfavorite', vi: 'Bỏ yêu thích' },
-  tooltipAddObject: { en: 'Add Object with Sketch', vi: 'Thêm Vật thể bằng Phác thảo' },
-  tooltipAddPerson: { en: 'Add Person from Image', vi: 'Thêm Người từ Ảnh' },
+  tooltipSaveToGallery: { en: 'Save to Gallery', vi: 'Lưu vào Thư viện' },
+  tooltipRemoveFromGallery: { en: 'Remove from Gallery', vi: 'Xóa khỏi Thư viện' },
+  tooltipAddObject: { en: 'Add Object', vi: 'Thêm Vật thể' },
+  tooltipAddPerson: { en: 'Add Person', vi: 'Thêm Người' },
   tooltipRemix: { en: 'Remix Image', vi: 'Remix ảnh' },
   tooltipExpand: { en: 'Expand Canvas', vi: 'Mở rộng Khung vẽ' },
   tooltipFix: { en: 'Fix Imperfections', vi: 'Sửa lỗi' },
@@ -102,6 +109,8 @@ export const translations = {
   cropImageTitle: { en: 'Crop Image', vi: 'Cắt ảnh' },
   cancelButton: { en: 'Cancel', vi: 'Hủy' },
   applyCropButton: { en: 'Apply Crop', vi: 'Áp dụng Cắt' },
+  applyButton: { en: 'Apply', vi: 'Áp dụng' },
+  resetButton: { en: 'Reset', vi: 'Đặt lại' },
   sketchPoseTitle: { en: 'Sketch Pose / Structure', vi: 'Phác thảo Dáng / Cấu trúc' },
   useSketchButton: { en: 'Use Sketch', vi: 'Dùng Bản phác thảo' },
   narrativeGeneratorTitle: { en: 'AI Narrative Generator', vi: 'AI Tạo tường thuật' },
@@ -136,7 +145,11 @@ export const translations = {
   deleteProjectConfirmation: { en: 'Are you sure you want to delete this project? Generations will not be deleted.', vi: 'Bạn có chắc chắn muốn xóa dự án này không? Các tác phẩm sẽ không bị xóa.' },
   deleteHistoryConfirmation: { en: 'Are you sure you want to delete this entire generation entry?', vi: 'Bạn có chắc chắn muốn xóa toàn bộ mục tạo ảnh này không?' },
   
-  // New Edit Modals
+  // Edit Modals
+  advancedEditTitle: { en: 'Advanced Edit', vi: 'Chỉnh sửa Nâng cao' },
+  brightness: { en: 'Brightness', vi: 'Độ sáng' },
+  contrast: { en: 'Contrast', vi: 'Độ tương phản' },
+  saturation: { en: 'Saturation', vi: 'Độ bão hòa' },
   remixImageTitle: { en: 'Remix Image', vi: 'Remix ảnh' },
   remixImageDescription: { en: 'Provide a new prompt to completely reimagine this image.', vi: 'Cung cấp một prompt mới để tái tưởng tượng hoàn toàn hình ảnh này.' },
   remixPlaceholder: { en: 'e.g., in the style of Van Gogh', vi: 'ví dụ: theo phong cách của Van Gogh' },
@@ -147,12 +160,19 @@ export const translations = {
   fixImperfectionsDescription: { en: 'Describe how to fix or change a part of the image. Be specific.', vi: 'Mô tả cách sửa chữa hoặc thay đổi một phần của hình ảnh. Hãy cụ thể.' },
   fixPlaceholder: { en: 'e.g., remove the car in the background', vi: 'ví dụ: xóa chiếc xe hơi ở hậu cảnh' },
   
-  // Gallery
-  galleryTitle: { en: 'Gallery', vi: 'Bộ sưu tập' },
-  galleryDescription: { en: 'Your collection of favorited masterpieces.', vi: 'Bộ sưu tập các kiệt tác yêu thích của bạn.' },
+  // Gallery & Favorites
+  galleryTitle: { en: 'Gallery', vi: 'Thư viện' },
+  galleryDescription: { en: 'Your permanent collection of saved images.', vi: 'Bộ sưu tập ảnh đã lưu vĩnh viễn của bạn.' },
+  favoritesTitle: { en: 'Favorites', vi: 'Yêu thích' },
+  favoritesDescription: { en: 'Your collection of favorited masterpieces.', vi: 'Bộ sưu tập các kiệt tác yêu thích của bạn.' },
   noFavorites: { en: 'No favorites yet.', vi: 'Chưa có mục yêu thích nào.' },
   noFavoritesDescription: { en: 'Click the star icon on a generated image to add it here.', vi: 'Nhấp vào biểu tượng ngôi sao trên ảnh đã tạo để thêm vào đây.' },
-  
+  noGalleryItems: { en: 'Your gallery is empty.', vi: 'Thư viện của bạn trống.' },
+  noGalleryItemsDescription: { en: 'Save an image from the generator to add it here.', vi: 'Lưu một ảnh từ trình tạo để thêm vào đây.' },
+  galleryDetailTitle: { en: 'Image Details', vi: 'Chi tiết Ảnh' },
+  details: { en: 'Details', vi: 'Chi tiết' },
+  deleteImage: { en: 'Delete Image', vi: 'Xóa Ảnh' },
+
   // Settings
   settingsTitle: { en: 'Settings', vi: 'Cài đặt' },
   settingsDescription: { en: 'Configure your application preferences.', vi: 'Cấu hình các tùy chọn ứng dụng của bạn.' },
@@ -205,8 +225,7 @@ export const translations = {
   
   // Other
   deleteConfirmation: { en: 'Are you sure you want to delete this image?', vi: 'Bạn có chắc chắn muốn xóa hình ảnh này không?' },
-  storagePrunedNotification: { en: 'Storage was full. The oldest non-favorited generation was removed to make space.', vi: 'Bộ nhớ đã đầy. Lần tạo cũ nhất không được yêu thích đã được xóa để giải phóng dung lượng.' },
-  storageFullError: { en: 'Storage is full. Failed to save new generation.', vi: 'Bộ nhớ đã đầy. Không thể lưu lần tạo mới.' },
-  storageFullFavoritesError: { en: 'Storage is full and all items are favorited. Please unfavorite some items to make space.', vi: 'Bộ nhớ đã đầy và tất cả các mục đều được yêu thích. Vui lòng bỏ yêu thích một số mục để giải phóng dung lượng.' },
-
+  storageQuotaError: { en: 'Storage quota exceeded. To prevent this, history is limited to 20 entries and the gallery to 25 images. Please clear items from your Gallery or History if this persists.', vi: 'Đã vượt quá hạn ngạch lưu trữ. Để ngăn chặn điều này, lịch sử được giới hạn trong 20 mục và thư viện trong 25 ảnh. Vui lòng xóa bớt các mục khỏi Thư viện hoặc Lịch sử nếu sự cố vẫn tiếp diễn.' },
+  storageGenericError: { en: 'An unexpected error occurred while saving your data. Please try again.', vi: 'Đã xảy ra lỗi không mong muốn khi lưu dữ liệu của bạn. Vui lòng thử lại.' },
+  error: { en: 'Error', vi: 'Lỗi' },
 };

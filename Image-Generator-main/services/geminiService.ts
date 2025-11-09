@@ -42,11 +42,21 @@ const callGemini = async (prompt: string, imageParts: { inlineData: { mimeType: 
     return generatedImages;
 
   } catch (error) {
-    console.error("Error calling Gemini API:", error);
+    console.error("Detailed error calling Gemini API:", error);
+    let friendlyMessage = "An unexpected error occurred while generating the image. Please check the console for details and try again later.";
+    
     if (error instanceof Error) {
-        return Promise.reject(`Error generating image: ${error.message}`);
+        if (error.message.includes('API_KEY_INVALID') || error.message.includes('permission_denied')) {
+            friendlyMessage = "Image generation failed: The API key is invalid or has been revoked. Please verify your API key.";
+        } else if (error.message.toLowerCase().includes('safety') || error.message.toLowerCase().includes('blocked')) {
+            friendlyMessage = "Image generation failed: The prompt was blocked due to safety settings. Please modify your prompt and try again.";
+        } else if (error.message.includes('404')) {
+             friendlyMessage = "Image generation failed: The model name could not be found. Please contact support.";
+        } else {
+            friendlyMessage = `Image generation failed: ${error.message}`;
+        }
     }
-    return Promise.reject("An unknown error occurred while generating the image.");
+    return Promise.reject(friendlyMessage);
   }
 };
 
@@ -100,11 +110,18 @@ export const refinePrompt = async (userPrompt: string, locale: 'en' | 'vi'): Pro
         }
         return refinedText;
     } catch (error) {
-        console.error("Error refining prompt:", error);
+        console.error("Detailed error refining prompt:", error);
+        let friendlyMessage = "An unexpected error occurred while refining the prompt. Please try again.";
         if (error instanceof Error) {
-            return Promise.reject(`Error refining prompt: ${error.message}`);
+            if (error.message.includes('API_KEY_INVALID')) {
+                friendlyMessage = "Prompt refinement failed: Invalid API key.";
+            } else if (error.message.toLowerCase().includes('safety') || error.message.toLowerCase().includes('blocked')) {
+                friendlyMessage = "Prompt refinement failed: The request was blocked due to safety settings.";
+            } else {
+                friendlyMessage = `Prompt refinement failed: ${error.message}`;
+            }
         }
-        return Promise.reject("An unknown error occurred while refining the prompt.");
+        return Promise.reject(friendlyMessage);
     }
 };
 
@@ -137,10 +154,17 @@ export const generateNarrative = async (images: ImagePart[], locale: 'en' | 'vi'
         }
         return narrative;
     } catch (error) {
-        console.error("Error generating narrative:", error);
+        console.error("Detailed error generating narrative:", error);
+        let friendlyMessage = "An unexpected error occurred while generating the narrative. Please try again.";
         if (error instanceof Error) {
-            return Promise.reject(`Error generating narrative: ${error.message}`);
+            if (error.message.includes('API_KEY_INVALID')) {
+                friendlyMessage = "Narrative generation failed: Invalid API key.";
+            } else if (error.message.toLowerCase().includes('safety') || error.message.toLowerCase().includes('blocked')) {
+                friendlyMessage = "Narrative generation failed: The request was blocked due to safety settings.";
+            } else {
+                friendlyMessage = `Narrative generation failed: ${error.message}`;
+            }
         }
-        return Promise.reject("An unknown error occurred while generating the narrative.");
+        return Promise.reject(friendlyMessage);
     }
 };
