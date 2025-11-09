@@ -1,7 +1,7 @@
 
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import ReactCrop, { type Crop, type PixelCrop, centerCrop, makeAspectCrop } from 'react-image-crop';
-import { generateImageWithPromptAndImages, upscaleImage, refinePrompt, generateNarrative } from './services/geminiService';
+import { generateImageWithPromptAndImages, upscaleImage, refinePrompt, generateNarrative, saveData, loadData } from './services/geminiService';
 import { translations } from './translations';
 import { 
     GenerateIcon, ImageIcon, DownloadIcon, CloseIcon, UploadIcon, HistoryIcon, UpscaleIcon, CropIcon, RefineIcon, SaveIcon, FilterIcon, 
@@ -450,7 +450,7 @@ Image 3 (close-up): Zoomed-in on the character's sorrowful, yearning eyes.`;
 interface UploadedImage { file: File; base64: string; }
 interface GeneratedImage { id: string; src: string; tags: string[]; generationTime?: number; isFavorite?: boolean; prompt: string; negativePrompt: string; settings: any;}
 interface GalleryImage { id: string; src: string; prompt: string; negativePrompt: string; settings: any; generationTime?: number; historyId: string; imageId: string; }
-interface HistoryItem { id: string; prompt: string; negativePrompt: string; uploadedImages: UploadedImage[]; generatedImages: (Omit<GeneratedImage, 'prompt' | 'negativePrompt' | 'settings'>)[]; settings: any; tags: string[]; folderId?: string; }
+interface HistoryItem { id: string; prompt: string; negativePrompt: string; generatedImages: (Omit<GeneratedImage, 'prompt' | 'negativePrompt' | 'settings'>)[]; settings: any; tags: string[]; folderId?: string; }
 interface Folder { id: string; name: string; }
 interface StyleProfile {
   id: string;
@@ -467,7 +467,7 @@ interface StyleProfile {
   controlNetType: 'OpenPose' | 'Depth Map' | 'Canny Edge';
   simulatedForce: number;
 }
-const HISTORY_LIMIT = 20;
+const HISTORY_LIMIT = 10;
 const GALLERY_LIMIT = 25;
 
 
@@ -726,7 +726,7 @@ const App: React.FC = () => {
       doc.classList.add('light');
       doc.classList.remove('dark');
     }
-    localStorage.setItem('dannz-theme', theme);
+    saveData('dannz-theme', theme);
     doc.lang = locale;
   }, [theme, locale]);
 
@@ -767,46 +767,53 @@ const App: React.FC = () => {
   const controlNetInputRef = useRef<HTMLInputElement>(null);
   const fineTuneInputRef = useRef<HTMLInputElement>(null);
   
-  const updateUserData = useCallback((key: string, data: any): boolean => {
-      if (!userId) return false;
+  const updateHistory = useCallback(async (newHistory: HistoryItem[]) => {
       try {
-        localStorage.setItem(`dannz-${key}-${userId}`, JSON.stringify(data));
-        return true;
-      } catch (e) {
-        if (e instanceof DOMException && (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED')) {
-            console.error(`LocalStorage quota exceeded while saving key: ${key}`);
-            setError(t('storageQuotaError'));
-        } else {
-            console.error(`Failed to save to localStorage for key: ${key}`, e);
-            setError(t('storageGenericError'));
+        if (userId) {
+          await saveData(`dannz-generation-history-${userId}`, newHistory);
         }
-        return false;
+        setHistory(newHistory);
+      } catch (e) {
+        console.error("Failed to save history to IDB:", e);
+        setError(t('storageGenericError'));
+      }
+  }, [userId, t]);
+  
+  const updateFolders = useCallback(async (newFolders: Folder[]) => {
+      try {
+        if (userId) {
+          await saveData(`dannz-project-folders-${userId}`, newFolders);
+        }
+        setFolders(newFolders);
+      } catch (e) {
+        console.error("Failed to save folders to IDB:", e);
+        setError(t('storageGenericError'));
       }
   }, [userId, t]);
 
-  const updateHistory = useCallback((newHistory: HistoryItem[]) => {
-      if (updateUserData('generation-history', newHistory)) {
-          setHistory(newHistory);
-      }
-  }, [updateUserData]);
-  
-  const updateFolders = useCallback((newFolders: Folder[]) => {
-      if (updateUserData('project-folders', newFolders)) {
-        setFolders(newFolders);
-      }
-  }, [updateUserData]);
-
-  const updateStyleProfiles = useCallback((newProfiles: StyleProfile[]) => {
-      if(updateUserData('style-profiles', newProfiles)) {
+  const updateStyleProfiles = useCallback(async (newProfiles: StyleProfile[]) => {
+      try {
+        if (userId) {
+          await saveData(`dannz-style-profiles-${userId}`, newProfiles);
+        }
         setStyleProfiles(newProfiles);
+      } catch (e) {
+        console.error("Failed to save profiles to IDB:", e);
+        setError(t('storageGenericError'));
       }
-  }, [updateUserData]);
+  }, [userId, t]);
 
-  const updateGallery = useCallback((newGallery: GalleryImage[]) => {
-      if(updateUserData('gallery-collection', newGallery)) {
+  const updateGallery = useCallback(async (newGallery: GalleryImage[]) => {
+      try {
+        if (userId) {
+          await saveData(`dannz-gallery-collection-${userId}`, newGallery);
+        }
         setGallery(newGallery);
+      } catch (e) {
+        console.error("Failed to save gallery to IDB:", e);
+        setError(t('storageGenericError'));
       }
-  }, [updateUserData]);
+  }, [userId, t]);
 
 
   useEffect(() => {
@@ -821,63 +828,50 @@ const App: React.FC = () => {
   useEffect(() => {
     if (!userId) return;
 
-    const migrateAndLoad = (key: string) => {
-        const userKey = `dannz-${key}-${userId}`;
-        const globalKey = `dannz-${key}`;
-        
-        let data = null;
+    const loadDataFromDB = async () => {
         try {
-            data = JSON.parse(localStorage.getItem(userKey) || 'null');
-        } catch (e) {
-            console.error(`Error parsing localStorage for key ${userKey}, clearing it.`, e);
-            localStorage.removeItem(userKey);
-        }
-
-        if (!data) {
-            const globalDataRaw = localStorage.getItem(globalKey);
-            if (globalDataRaw) {
-                try {
-                    const globalData = JSON.parse(globalDataRaw);
-                    if (globalData) {
-                        data = globalData;
-                        localStorage.setItem(userKey, JSON.stringify(data));
+            const savedProfiles = (await loadData(`dannz-style-profiles-${userId}`)) || [];
+            if (Array.isArray(savedProfiles)) setStyleProfiles(savedProfiles);
+            
+            const savedHistory: HistoryItem[] = (await loadData(`dannz-generation-history-${userId}`)) || [];
+            if (Array.isArray(savedHistory)) {
+                let wasMigrated = false;
+                const migratedHistory = savedHistory.map((item: any) => {
+                     if (Object.prototype.hasOwnProperty.call(item, 'uploadedImages')) {
+                        wasMigrated = true;
                     }
-                } catch (e) {
-                    console.error(`Failed to parse global data for key ${globalKey}`, e);
+                     const generatedWithIds = item.generatedImages.map((img: any) => ({
+                        id: img.id || crypto.randomUUID(),
+                        ...img,
+                    }));
+                    const { uploadedImages, ...restOfItem } = item;
+                    return { ...restOfItem, generatedImages: generatedWithIds };
+                });
+
+                setHistory(migratedHistory);
+                
+                if(wasMigrated) {
+                    await saveData(`dannz-generation-history-${userId}`, migratedHistory);
                 }
             }
+
+            const savedFolders = (await loadData(`dannz-project-folders-${userId}`)) || [];
+            if(Array.isArray(savedFolders)) setFolders(savedFolders);
+
+            const savedGallery = (await loadData(`dannz-gallery-collection-${userId}`)) || [];
+            if(Array.isArray(savedGallery)) setGallery(savedGallery);
+            
+            const savedTheme = (await loadData('dannz-theme')) || 'dark';
+            if (savedTheme === 'light' || savedTheme === 'dark') setTheme(savedTheme);
+
+        } catch (e) { 
+            console.error("Failed to load data from IndexedDB", e);
+            setError(t('storageGenericError'));
         }
-        const isArrayKey = key.includes('history') || key.includes('profiles') || key.includes('folders') || key.includes('gallery');
-        return data || (isArrayKey ? [] : {});
     };
 
-    try {
-        const savedProfiles = migrateAndLoad('style-profiles');
-        if (Array.isArray(savedProfiles)) setStyleProfiles(savedProfiles);
-        
-        const savedHistory: HistoryItem[] = migrateAndLoad('generation-history');
-        if (Array.isArray(savedHistory)) {
-            const migratedHistory = savedHistory.map((item: any) => {
-                 const generatedWithIds = item.generatedImages.map((img: any) => ({
-                    id: img.id || crypto.randomUUID(), // Assign new ID if missing
-                    ...img,
-                }));
-                return { ...item, generatedImages: generatedWithIds };
-            });
-            setHistory(migratedHistory);
-        }
-
-        const savedFolders = migrateAndLoad('project-folders');
-        if(Array.isArray(savedFolders)) setFolders(savedFolders);
-
-        const savedGallery = migrateAndLoad('gallery-collection');
-        if(Array.isArray(savedGallery)) setGallery(savedGallery);
-        
-        const savedTheme = localStorage.getItem('dannz-theme');
-        if (savedTheme === 'light' || savedTheme === 'dark') setTheme(savedTheme);
-
-    } catch (e) { console.error("Failed to load data from localStorage", e); }
-  }, [userId]);
+    loadDataFromDB();
+  }, [userId, t]);
 
   const handleImageUpload = (isControlNet: boolean, isFineTune: boolean = false) => async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files; if (!files || files.length === 0) return;
@@ -1126,7 +1120,6 @@ const App: React.FC = () => {
               id: Date.now().toString(), 
               prompt: isSeriesRun ? `Series: ${seriesBasePrompt}` : prompt, 
               negativePrompt, 
-              uploadedImages, 
               generatedImages: combinedResults, 
               settings: currentSettings, 
               tags: isSeriesRun ? ['series'] : [] 

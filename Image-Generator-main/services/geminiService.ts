@@ -1,5 +1,95 @@
 import { GoogleGenAI, Modality } from "@google/genai";
 
+// --- START: IndexedDB Service ---
+const DB_NAME = 'DannzStudioDB';
+const DB_VERSION = 1;
+const STORE_NAME = 'keyValueStorage';
+
+let db: IDBDatabase | null = null;
+
+/**
+ * Opens and initializes the IndexedDB database.
+ */
+const openDB = (): Promise<IDBDatabase> => {
+  return new Promise((resolve, reject) => {
+    if (db) {
+      resolve(db);
+      return;
+    }
+
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+    request.onerror = () => {
+      console.error('IndexedDB error:', request.error);
+      reject(new Error('Failed to open IndexedDB.'));
+    };
+
+    request.onsuccess = (event) => {
+      db = (event.target as IDBOpenDBRequest).result;
+      resolve(db);
+    };
+
+    request.onupgradeneeded = (event) => {
+      const dbInstance = (event.target as IDBOpenDBRequest).result;
+      if (!dbInstance.objectStoreNames.contains(STORE_NAME)) {
+        dbInstance.createObjectStore(STORE_NAME, { keyPath: 'key' });
+      }
+    };
+  });
+};
+
+/**
+ * Saves data to IndexedDB, mimicking localStorage.setItem.
+ * @param key The key to store the data under.
+ * @param data The data to be stored.
+ */
+export const saveData = async (key: string, data: any): Promise<void> => {
+  const dbInstance = await openDB();
+  return new Promise((resolve, reject) => {
+    const transaction = dbInstance.transaction([STORE_NAME], 'readwrite');
+    const store = transaction.objectStore(STORE_NAME);
+    const request = store.put({ key, data }); 
+
+    request.onerror = () => {
+      console.error('Failed to save data to IDB:', request.error);
+      reject(request.error);
+    };
+
+    request.onsuccess = () => {
+      resolve();
+    };
+  });
+};
+
+/**
+ * Loads data from IndexedDB, mimicking localStorage.getItem.
+ * @param key The key of the data to retrieve.
+ * @returns The stored data, or null if not found.
+ */
+export const loadData = async (key: string): Promise<any | null> => {
+  const dbInstance = await openDB();
+  return new Promise((resolve, reject) => {
+    const transaction = dbInstance.transaction([STORE_NAME], 'readonly');
+    const store = transaction.objectStore(STORE_NAME);
+    const request = store.get(key);
+
+    request.onerror = () => {
+      console.error('Failed to load data from IDB:', request.error);
+      reject(request.error);
+    };
+
+    request.onsuccess = () => {
+      if (request.result) {
+        resolve(request.result.data);
+      } else {
+        resolve(null);
+      }
+    };
+  });
+};
+// --- END: IndexedDB Service ---
+
+
 export interface ImagePart {
   mimeType: string;
   data: string; // base64 string without the data URL prefix
