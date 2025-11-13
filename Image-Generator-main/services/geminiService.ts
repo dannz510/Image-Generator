@@ -95,16 +95,7 @@ export interface ImagePart {
   data: string; // base64 string without the data URL prefix
 }
 
-export type StructureMode = 'none' | 'canny' | 'depth' | 'pose';
-
-export interface GenerationConfig {
-  seed?: number;
-  stylePromptSnippet?: string;
-  structureReferenceImage?: ImagePart;
-  structureMode?: StructureMode;
-}
-
-const callGemini = async (prompt: string, imageParts: { inlineData: { mimeType: string, data: string } }[], config: GenerationConfig): Promise<string[]> => {
+const callGemini = async (prompt: string, imageParts: { inlineData: { mimeType: string, data: string } }[]): Promise<string[]> => {
   if (!process.env.API_KEY) {
     throw new Error("The API_KEY environment variable is not set.");
   }
@@ -113,24 +104,15 @@ const callGemini = async (prompt: string, imageParts: { inlineData: { mimeType: 
   
   const textPart = { text: prompt };
   
-  let parts: (object)[] = [textPart, ...imageParts];
-
-  if (config.structureReferenceImage && config.structureMode && config.structureMode !== 'none') {
-    const structureInstruction = `Use the provided image as a structural reference. Extract the ${config.structureMode} map (edges for canny, depth for depth, skeleton for pose) to control the composition and pose of the output image. The style should follow the main text prompt.`;
-    parts = [
-      { text: structureInstruction },
-      { inlineData: { mimeType: config.structureReferenceImage.mimeType, data: config.structureReferenceImage.data } },
-      ...parts
-    ];
-  }
+  // The prompt must be the first part
+  const parts = [textPart, ...imageParts];
   
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
-      contents: { parts: parts as any },
+      contents: { parts: parts },
       config: {
           responseModalities: [Modality.IMAGE],
-          ...(config.seed !== undefined && { seed: config.seed }),
       },
     });
 
@@ -172,51 +154,28 @@ const callGemini = async (prompt: string, imageParts: { inlineData: { mimeType: 
 export const generateImageWithPromptAndImages = async (
   prompt: string,
   images: ImagePart[],
-  config: GenerationConfig,
 ): Promise<string[]> => {
-    let fullPrompt = prompt;
-    if (config.stylePromptSnippet) {
-      fullPrompt = `${config.stylePromptSnippet}, ${prompt}`;
-    }
-
     const imageParts = images.map(img => ({
         inlineData: {
             mimeType: img.mimeType,
             data: img.data,
         },
     }));
-    return callGemini(fullPrompt, imageParts, config);
+    return callGemini(prompt, imageParts);
 };
 
-export const upscaleImage = async (image: ImagePart, upscaleFactor: number, refinePrompt: string): Promise<string> => {
-    if (!process.env.API_KEY) {
-        throw new Error("The API_KEY environment variable is not set.");
-    }
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
-    let upscalePrompt = `Upscale this image by ${upscaleFactor}x and add high-frequency details. Focus on ${refinePrompt}.`;
+export const upscaleImage = async (base64Image: string): Promise<string[]> => {
+    const prompt = "Upscale this image to the highest possible resolution, enhancing details, sharpness and clarity without altering the content or style. Aim for 8K quality.";
     
-    try {
-        const parts = [{ text: upscalePrompt }, { inlineData: { mimeType: image.mimeType, data: image.data } }];
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash-image',
-            contents: { parts: parts as any },
-            config: {
-                responseModalities: [Modality.IMAGE],
-            },
-        });
-
-        const upscaledImage = response.candidates?.[0]?.content?.parts?.find(p => p.inlineData)?.inlineData?.data;
-        const mimeType = response.candidates?.[0]?.content?.parts?.find(p => p.inlineData)?.inlineData?.mimeType;
-
-        if (!upscaledImage || !mimeType) {
-            throw new Error("Upscale/Refine model did not return an image.");
+    const imagePart = {
+        inlineData: {
+            // Extract mime type from data URL, default to jpeg
+            mimeType: base64Image.match(/data:(.*);base64/)?.[1] || 'image/jpeg',
+            data: base64Image.split(',')[1],
         }
-        return `data:${mimeType};base64,${upscaledImage}`;
-    } catch (error) {
-        console.error("Detailed error during Super Resolution:", error);
-        return Promise.reject("Failed to perform AI Super Resolution. Check API response.");
-    }
+    };
+
+    return callGemini(prompt, [imagePart]);
 };
 
 export const refinePrompt = async (userPrompt: string, locale: 'en' | 'vi'): Promise<string> => {
@@ -299,133 +258,3 @@ export const generateNarrative = async (images: ImagePart[], locale: 'en' | 'vi'
         return Promise.reject(friendlyMessage);
     }
 };
-
-export const analyzelmageStyleAndGeneratePrompt = async (image: ImagePart): Promise<string> => {
-    if (!process.env.API_KEY) {
-        throw new Error("The API_KEY environment variable is not set.");
-    }
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    const systemInstruction = "You are an AI style analyst. Analyze the provided image and generate a detailed, comma-separated prompt snippet (under 50 words) describing its artistic style, color palette, lighting, texture, and composition. The output must be ready to be prepended to a user's prompt for image generation. DO NOT include any conversational text or formatting. Start directly with the prompt snippet.";
-    
-    try {
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: {
-                parts: [
-                    { text: systemInstruction },
-                    { inlineData: { mimeType: image.mimeType, data: image.data } }
-                ]
-            },
-        });
-        
-        const stylePrompt = response.text.trim();
-        if (!stylePrompt) {
-            throw new Error("Style analysis model did not return a prompt.");
-        }
-        return stylePrompt;
-    } catch (error) {
-        console.error("Detailed error during style analysis:", error);
-        return Promise.reject("Failed to analyze image style. Check API response.");
-    }
-};
-
-// --- START: Prompt Analysis Service ---
-export interface PromptAnalysisResult {
-    score: number;
-    suggestions: string[];
-    negativeSuggestions: string[];
-    conflictDetected: boolean;
-    conflictReason: string;
-}
-
-export const analyzeAndScorePrompt = async (prompt: string, styleSnippet: string | null): Promise<PromptAnalysisResult> => {
-    if (!process.env.API_KEY) {
-        throw new Error("The API_KEY environment variable is not set.");
-    }
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    
-    const analysisPrompt = `Analyze the following user prompt for image generation, considering the optional style snippet provided:
-    
-    User Prompt: "${prompt}"
-    Style Snippet (if available): "${styleSnippet || 'None'}"
-    
-    Task:
-    1. Score the prompt's quality from 0.0 to 1.0 (1.0 being perfect).
-    2. Suggest 3-5 keywords to make the prompt more detailed.
-    3. Suggest 3-5 negative keywords for the Negative Prompt (e.g., 'bad anatomy', 'deformed').
-    4. Detect if there is a severe conflict between the User Prompt and the Style Snippet (e.g., photorealistic prompt with cartoon style snippet).
-    
-    Return the result in a strict JSON format (no extra text, no markdown block quotes):
-    {
-      "score": number, 
-      "suggestions": ["suggestion1", "suggestion2"], 
-      "negativeSuggestions": ["neg1", "neg2"], 
-      "conflictDetected": boolean, 
-      "conflictReason": string 
-    }`;
-
-    try {
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash', 
-            contents: [{ parts: [{ text: analysisPrompt }] }],
-            config: { 
-                responseMimeType: "application/json" 
-            } 
-        });
-
-        const resultText = response.text.trim().replace(/^```json|```$/g, '').trim();
-        return JSON.parse(resultText) as PromptAnalysisResult;
-        
-    } catch (error) {
-        console.error("Detailed error during prompt analysis:", error);
-        return Promise.reject("Failed to analyze prompt. Check API response or JSON format.");
-    }
-};
-// --- END: Prompt Analysis Service ---
-
-
-// --- START: Material Generation Service ---
-
-const generateMaterialMap = async (prompt: string, image: ImagePart): Promise<string> => {
-    if (!process.env.API_KEY) {
-        throw new Error("The API_KEY environment variable is not set.");
-    }
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    try {
-        const parts = [{ text: prompt }, { inlineData: { mimeType: image.mimeType, data: image.data } }];
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash-image',
-            contents: { parts: parts as any },
-            config: {
-                responseModalities: [Modality.IMAGE],
-            },
-        });
-
-        const resultImage = response.candidates?.[0]?.content?.parts?.find(p => p.inlineData)?.inlineData?.data;
-        const mimeType = response.candidates?.[0]?.content?.parts?.find(p => p.inlineData)?.inlineData?.mimeType;
-
-        if (!resultImage || !mimeType) {
-            throw new Error("Material generation model did not return an image.");
-        }
-        return `data:${mimeType};base64,${resultImage}`;
-    } catch (error) {
-        console.error("Detailed error during material generation:", error);
-        return Promise.reject("Failed to generate material. Check API response.");
-    }
-};
-
-export const generateSeamlessTexture = async (image: ImagePart): Promise<string> => {
-    const prompt = "From the given image snippet, generate a high-quality, seamless, tileable PBR texture. The output should be only the albedo/color map, perfectly tileable on all four sides.";
-    return generateMaterialMap(prompt, image);
-};
-
-export const generateNormalMap = async (texture: ImagePart): Promise<string> => {
-    const prompt = "From this albedo texture image, generate a high-quality, tangent space normal map suitable for a PBR workflow in a game engine. The output should only be the normal map image, with correct blue/purple coloration.";
-    return generateMaterialMap(prompt, texture);
-};
-
-export const generateDisplacementMap = async (texture: ImagePart): Promise<string> => {
-    const prompt = "From this albedo texture image, generate a corresponding height map (displacement map) suitable for a PBR workflow. The output should be a grayscale image where white represents the highest points and black represents the lowest points. The output should only be the displacement map image.";
-    return generateMaterialMap(prompt, texture);
-};
-// --- END: Material Generation Service ---
